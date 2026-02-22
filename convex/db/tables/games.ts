@@ -24,4 +24,5 @@ export const games = defineTable({
 })
   .index("by_session", ["sessionId"])
   .index("by_session_createdat", ["sessionId", "createdAt"])
+  .index("by_user_createdat", ["userId", "createdAt"])
   .index("by_createdat", ["createdAt"]);

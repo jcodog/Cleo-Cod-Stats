@@ -105,6 +105,67 @@ export type DataModel = {
       by_createdat: ["createdAt", "_creationTime"];
       by_session: ["sessionId", "_creationTime"];
       by_session_createdat: ["sessionId", "createdAt", "_creationTime"];
+      by_user_createdat: ["userId", "createdAt", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  landingGlobalStats: {
+    document: {
+      activeSessions: number;
+      key: "global";
+      losses: number;
+      matchesIndexed: number;
+      sessionsTracked: number;
+      updatedAt: number;
+      wins: number;
+      _id: Id<"landingGlobalStats">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "activeSessions"
+      | "key"
+      | "losses"
+      | "matchesIndexed"
+      | "sessionsTracked"
+      | "updatedAt"
+      | "wins";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  landingUserStats: {
+    document: {
+      activeSessions: number;
+      losses: number;
+      matchesIndexed: number;
+      sessionsTracked: number;
+      updatedAt: number;
+      userId: string;
+      wins: number;
+      _id: Id<"landingUserStats">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "activeSessions"
+      | "losses"
+      | "matchesIndexed"
+      | "sessionsTracked"
+      | "updatedAt"
+      | "userId"
+      | "wins";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_userId: ["userId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

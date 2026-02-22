@@ -2,9 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
-import { useConvex } from "convex/react";
-
-import { api } from "@/convex/_generated/api";
+import {
+  LANDING_METRICS_REFETCH_MS,
+  type LandingMetricsResponse,
+} from "@/lib/landing/metrics";
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("en-GB").format(value);
@@ -41,23 +42,40 @@ function formatRelativeTime(timestamp: number | null) {
   return `${days}d ago`;
 }
 
+async function fetchLandingMetrics(signal?: AbortSignal) {
+  const response = await fetch("/api/landing-metrics", {
+    method: "GET",
+    signal,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch landing metrics: ${response.status}`);
+  }
+
+  return (await response.json()) as LandingMetricsResponse;
+}
+
 export function LandingLiveStats() {
-  const convex = useConvex();
   const { isLoaded, isSignedIn, user } = useUser();
 
   const userId = isSignedIn ? user?.id : undefined;
+  const refetchInterval = isSignedIn
+    ? LANDING_METRICS_REFETCH_MS.authenticated
+    : LANDING_METRICS_REFETCH_MS.anonymous;
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["landing-live-stats", userId ?? "anonymous"],
-    queryFn: () =>
-      convex.query(
-        api.stats.getLandingMetrics,
-        userId ? { userId } : {},
-      ),
+    queryFn: ({ signal }) => fetchLandingMetrics(signal),
     enabled: isLoaded,
-    staleTime: 5_000,
-    refetchInterval: 10_000,
-    refetchIntervalInBackground: true,
+    staleTime: 0,
+    gcTime: refetchInterval * 6,
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
+    placeholderData: (previousData) => previousData,
   });
 
   const scopedStats = data
