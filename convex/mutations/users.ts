@@ -83,13 +83,14 @@ export const deleteFromClerk = internalMutation({
   handler: async (ctx, { clerkUserId }) => {
     const user = await userByClerkUserId(ctx, clerkUserId);
 
-    if (user !== null) {
-      await ctx.db.delete(user._id);
-    } else {
-      throw new Error(
-        `Can't delete user, there is no user record for Clerk User ID: ${clerkUserId}`,
+    if (!user) {
+      console.log(
+        `Ignoring Clerk user deletion for missing local user: ${clerkUserId}`,
       );
+      return;
     }
+
+    await ctx.db.delete(user._id);
   },
 });
 
