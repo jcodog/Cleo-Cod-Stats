@@ -142,6 +142,14 @@ export declare const api: {
           any
         >;
       };
+      landing: {
+        getLandingMetrics: FunctionReference<
+          "query",
+          "public",
+          { userId?: string },
+          any
+        >;
+      };
       sessions: {
         getSessionAggregatedStats: FunctionReference<
           "query",
@@ -168,6 +176,9 @@ export declare const api: {
         >;
       };
     };
+    users: {
+      current: FunctionReference<"query", "public", {}, any>;
+    };
   };
   stats: {
     createSession: FunctionReference<
@@ -192,6 +203,12 @@ export declare const api: {
       "query",
       "public",
       { sessionId: string },
+      any
+    >;
+    getLandingMetrics: FunctionReference<
+      "query",
+      "public",
+      { userId?: string },
       any
     >;
     getSessionAggregatedStats: FunctionReference<
@@ -256,6 +273,29 @@ export declare const api: {
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: {};
+export declare const internal: {
+  mutations: {
+    users: {
+      deleteFromClerk: FunctionReference<
+        "mutation",
+        "internal",
+        { clerkUserId: string },
+        any
+      >;
+      updateFromClerk: FunctionReference<
+        "mutation",
+        "internal",
+        { data: any },
+        any
+      >;
+      upsertFromClerk: FunctionReference<
+        "mutation",
+        "internal",
+        { data: any },
+        any
+      >;
+    };
+  };
+};
 
 export declare const components: {};

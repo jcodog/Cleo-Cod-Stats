@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import { ThemeProvider } from "@/components/providers/Theme";
 import { ClerkProvider } from "@/components/providers/ClerkProvider";
 import ConvexClientProvider from "@/components/providers/ConvexProviderWithClerk";
+import { TanstackQueryProvider } from "@/components/providers/TanstackQueryProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -39,7 +40,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClerkProvider>
-            <ConvexClientProvider>{children}</ConvexClientProvider>
+            <ConvexClientProvider>
+              <TanstackQueryProvider>{children}</TanstackQueryProvider>
+            </ConvexClientProvider>
           </ClerkProvider>
         </ThemeProvider>
       </body>

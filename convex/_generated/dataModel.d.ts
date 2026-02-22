@@ -27,6 +27,40 @@ import type { GenericId } from "convex/values";
  */
 
 export type DataModel = {
+  chatgptAppConnections: {
+    document: {
+      accessTokenEnc?: string;
+      createdAt: number;
+      expiresAt?: number;
+      lastUsedAt?: number;
+      refreshTokenEnc?: string;
+      revokedAt?: number;
+      scopes: Array<string>;
+      updatedAt: number;
+      userId: string;
+      _id: Id<"chatgptAppConnections">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "accessTokenEnc"
+      | "createdAt"
+      | "expiresAt"
+      | "lastUsedAt"
+      | "refreshTokenEnc"
+      | "revokedAt"
+      | "scopes"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   games: {
     document: {
       createdAt: number;
@@ -117,6 +151,45 @@ export type DataModel = {
       by_user: ["userId", "_creationTime"];
       by_user_cod_season: ["userId", "codTitle", "season", "_creationTime"];
       by_uuid: ["uuid", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  users: {
+    document: {
+      chatgptLinked: boolean;
+      chatgptLinkedAt?: number;
+      chatgptRevokedAt?: number;
+      cleoDashLinked: boolean;
+      clerkUserId: string;
+      createdAt: number;
+      discordId: string;
+      name: string;
+      plan: "free" | "premium";
+      status: "active" | "disabled";
+      updatedAt: number;
+      _id: Id<"users">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "chatgptLinked"
+      | "chatgptLinkedAt"
+      | "chatgptRevokedAt"
+      | "cleoDashLinked"
+      | "clerkUserId"
+      | "createdAt"
+      | "discordId"
+      | "name"
+      | "plan"
+      | "status"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_clerkUserId: ["clerkUserId", "_creationTime"];
+      by_discordId: ["discordId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
