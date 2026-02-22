@@ -3,50 +3,11 @@ import { v } from "convex/values";
 
 import type { Doc } from "../../_generated/dataModel";
 import { query, type QueryCtx } from "../../_generated/server";
-
-type AggregatedSessionStats = {
-  matchesIndexed: number;
-  sessionsTracked: number;
-  activeSessions: number;
-  wins: number;
-  losses: number;
-};
-
-type SessionDoc = Doc<"sessions">;
-
-function aggregateSessionStats(
-  sessions: Array<{
-    wins: number;
-    losses: number;
-    endedAt: number | null;
-  }>,
-): AggregatedSessionStats {
-  return sessions.reduce<AggregatedSessionStats>(
-    (acc, session) => {
-      const matches = session.wins + session.losses;
-      return {
-        matchesIndexed: acc.matchesIndexed + matches,
-        sessionsTracked: acc.sessionsTracked + 1,
-        activeSessions: acc.activeSessions + (session.endedAt === null ? 1 : 0),
-        wins: acc.wins + session.wins,
-        losses: acc.losses + session.losses,
-      };
-    },
-    {
-      matchesIndexed: 0,
-      sessionsTracked: 0,
-      activeSessions: 0,
-      wins: 0,
-      losses: 0,
-    },
-  );
-}
-
-function toWinRate(wins: number, losses: number) {
-  const totalGames = wins + losses;
-  if (totalGames === 0) return 0;
-  return (wins / totalGames) * 100;
-}
+import {
+  getGlobalLandingCounters,
+  getUserLandingCounters,
+  toWinRate,
+} from "../../lib/landingMetrics";
 
 function addCandidate(candidates: Set<string>, value: string | null | undefined) {
   if (!value) {
@@ -69,39 +30,44 @@ function getUserIdCandidates(
   addCandidate(candidates, identity?.subject);
   addCandidate(candidates, identity?.tokenIdentifier);
 
-  if (identity?.tokenIdentifier.includes("|")) {
-    const tokenParts = identity.tokenIdentifier.split("|");
+  const tokenIdentifier = identity?.tokenIdentifier;
+  if (tokenIdentifier && tokenIdentifier.includes("|")) {
+    const tokenParts = tokenIdentifier.split("|");
     addCandidate(candidates, tokenParts[tokenParts.length - 1]);
   }
 
   return Array.from(candidates);
 }
 
-async function getSessionsForCandidates(
+async function getLatestUserGameForCandidates(
   ctx: QueryCtx,
   userIdCandidates: string[],
 ) {
   if (userIdCandidates.length === 0) {
-    return [] as SessionDoc[];
+    return null;
   }
 
-  const groupedSessions = await Promise.all(
-    userIdCandidates.map((candidate) =>
+  const latestGames = await Promise.all(
+    Array.from(new Set(userIdCandidates)).map((candidate) =>
       ctx.db
-        .query("sessions")
-        .withIndex("by_user", (q) => q.eq("userId", candidate))
-        .collect(),
+        .query("games")
+        .withIndex("by_user_createdat", (q) => q.eq("userId", candidate))
+        .order("desc")
+        .first(),
     ),
   );
 
-  const dedupedById = new Map<string, SessionDoc>();
-  for (const sessions of groupedSessions) {
-    for (const session of sessions) {
-      dedupedById.set(session._id, session);
+  return latestGames.reduce<Doc<"games"> | null>((latest, game) => {
+    if (!game) {
+      return latest;
     }
-  }
 
-  return Array.from(dedupedById.values());
+    if (!latest || game.createdAt > latest.createdAt) {
+      return game;
+    }
+
+    return latest;
+  }, null);
 }
 
 export const getLandingMetrics = query({
@@ -112,97 +78,47 @@ export const getLandingMetrics = query({
     const identity = await ctx.auth.getUserIdentity();
     const userIdCandidates = getUserIdCandidates(userId, identity);
 
-    const globalSessionsPromise = ctx.db.query("sessions").collect();
+    const globalCountersPromise = getGlobalLandingCounters(ctx);
     const latestGlobalGamePromise = ctx.db
       .query("games")
       .withIndex("by_createdat")
       .order("desc")
       .first();
-
-    const userSessionsPromise = getSessionsForCandidates(ctx, userIdCandidates);
-
-    const [globalSessions, latestGlobalGame, userSessions] =
-      await Promise.all([
-        globalSessionsPromise,
-        latestGlobalGamePromise,
-        userSessionsPromise,
-      ]);
-
-    const global = aggregateSessionStats(globalSessions);
-
-    let globalMatchesIndexed = global.matchesIndexed;
-    if (globalMatchesIndexed === 0 && global.sessionsTracked > 0) {
-      const globalGames = await ctx.db.query("games").collect();
-      globalMatchesIndexed = globalGames.length;
-    }
-
-    const personalAggregated =
-      userSessions.length > 0 ? aggregateSessionStats(userSessions) : null;
-
-    const latestUserGames = personalAggregated
-      ? await Promise.all(
-          userSessions.map((session) =>
-            ctx.db
-              .query("games")
-              .withIndex("by_session_createdat", (q) => q.eq("sessionId", session.uuid))
-              .order("desc")
-              .first(),
-          ),
-        )
-      : [];
-
-    const latestUserGame = latestUserGames.reduce<Doc<"games"> | null>(
-      (latest, game) => {
-        if (!game) {
-          return latest;
-        }
-
-        if (!latest || game.createdAt > latest.createdAt) {
-          return game;
-        }
-
-        return latest;
-      },
-      null,
+    const personalCountersPromise = getUserLandingCounters(ctx, userIdCandidates);
+    const latestUserGamePromise = getLatestUserGameForCandidates(
+      ctx,
+      userIdCandidates,
     );
 
-    let personalMatchesIndexed = personalAggregated?.matchesIndexed ?? 0;
-    if (
-      personalAggregated &&
-      personalMatchesIndexed === 0 &&
-      personalAggregated.sessionsTracked > 0
-    ) {
-      const gamesBySession = await Promise.all(
-        userSessions.map((session) =>
-          ctx.db
-            .query("games")
-            .withIndex("by_session", (q) => q.eq("sessionId", session.uuid))
-            .collect(),
-        ),
-      );
+    const [
+      globalCounters,
+      latestGlobalGame,
+      personalCounters,
+      latestUserGame,
+    ] = await Promise.all([
+      globalCountersPromise,
+      latestGlobalGamePromise,
+      personalCountersPromise,
+      latestUserGamePromise,
+    ]);
 
-      personalMatchesIndexed = gamesBySession.reduce(
-        (total, games) => total + games.length,
-        0,
-      );
-    }
-
-    const personal = personalAggregated
+    const personal = personalCounters
       ? {
-          ...personalAggregated,
-          matchesIndexed: personalMatchesIndexed,
+          matchesIndexed: personalCounters.matchesIndexed,
+          sessionsTracked: personalCounters.sessionsTracked,
+          activeSessions: personalCounters.activeSessions,
           latestIngestedAt: latestUserGame?.createdAt ?? null,
-          winRate: toWinRate(personalAggregated.wins, personalAggregated.losses),
+          winRate: toWinRate(personalCounters.wins, personalCounters.losses),
         }
       : null;
 
     return {
       global: {
-        matchesIndexed: globalMatchesIndexed,
-        sessionsTracked: global.sessionsTracked,
-        activeSessions: global.activeSessions,
+        matchesIndexed: globalCounters.matchesIndexed,
+        sessionsTracked: globalCounters.sessionsTracked,
+        activeSessions: globalCounters.activeSessions,
         latestIngestedAt: latestGlobalGame?.createdAt ?? null,
-        winRate: toWinRate(global.wins, global.losses),
+        winRate: toWinRate(globalCounters.wins, globalCounters.losses),
       },
       personal,
     };

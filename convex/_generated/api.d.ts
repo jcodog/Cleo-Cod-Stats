@@ -274,7 +274,29 @@ export declare const api: {
  * ```
  */
 export declare const internal: {
+  actions: {
+    stats: {
+      cache: {
+        invalidateLandingMetricsCache: FunctionReference<
+          "action",
+          "internal",
+          { invalidateAll?: boolean; userId?: string },
+          any
+        >;
+      };
+    };
+  };
   mutations: {
+    stats: {
+      landingMetrics: {
+        rebuildLandingMetrics: FunctionReference<
+          "mutation",
+          "internal",
+          {},
+          any
+        >;
+      };
+    };
     users: {
       deleteFromClerk: FunctionReference<
         "mutation",

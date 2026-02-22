@@ -1,5 +1,10 @@
 import { v } from "convex/values";
+import { internal } from "../../_generated/api";
 import { mutation } from "../../_generated/server";
+import {
+  applyGlobalLandingStatsDelta,
+  applyUserLandingStatsDelta,
+} from "../../lib/landingMetrics";
 
 export type Outcome = "win" | "loss";
 export type Mode = "hardpoint" | "snd" | "overload";
@@ -48,6 +53,7 @@ export const logMatch = mutation({
     const newStreak = outcome === "win" ? session.streak + 1 : 0;
     const newBestStreak =
       newStreak > session.bestStreak ? newStreak : session.bestStreak;
+    const now = Date.now();
     // 3. Insert the new game document
     await ctx.db.insert("games", {
       sessionId: sessionUuid,
@@ -64,7 +70,7 @@ export const logMatch = mutation({
       plants: args.plants ?? null,
       defuses: args.defuses ?? null,
       overloads: args.overloads ?? null,
-      createdAt: Date.now(),
+      createdAt: now,
     });
     // 4. Update the session document aggregates
     await ctx.db.patch(session._id, {
@@ -77,5 +83,21 @@ export const logMatch = mutation({
       streak: newStreak,
       bestStreak: newBestStreak,
     });
+
+    const statsDelta = {
+      matchesIndexed: 1,
+      wins: outcome === "win" ? 1 : 0,
+      losses: outcome === "loss" ? 1 : 0,
+    };
+    await applyGlobalLandingStatsDelta(ctx, statsDelta);
+    await applyUserLandingStatsDelta(ctx, session.userId, statsDelta);
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.stats.cache.invalidateLandingMetricsCache,
+      {
+        userId: session.userId,
+      },
+    );
   },
 });

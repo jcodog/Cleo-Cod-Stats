@@ -1,5 +1,10 @@
 import { v } from "convex/values";
+import { internal } from "../../_generated/api";
 import { mutation } from "../../_generated/server";
+import {
+  applyGlobalLandingStatsDelta,
+  applyUserLandingStatsDelta,
+} from "../../lib/landingMetrics";
 
 export const createSession = mutation({
   args: {
@@ -35,6 +40,24 @@ export const createSession = mutation({
     }
 
     if (matchingSession) {
+      const activeSessionsDelta = -sessionsToClose.length;
+      if (activeSessionsDelta !== 0) {
+        const statsDelta = {
+          activeSessions: activeSessionsDelta,
+        };
+
+        await applyGlobalLandingStatsDelta(ctx, statsDelta);
+        await applyUserLandingStatsDelta(ctx, userId, statsDelta);
+
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.stats.cache.invalidateLandingMetricsCache,
+          {
+            userId,
+          },
+        );
+      }
+
       return {
         created: false,
         session: matchingSession,
@@ -63,6 +86,21 @@ export const createSession = mutation({
     if (!createdSession) {
       throw new Error("Failed to create session");
     }
+
+    const statsDelta = {
+      sessionsTracked: 1,
+      activeSessions: 1 - sessionsToClose.length,
+    };
+    await applyGlobalLandingStatsDelta(ctx, statsDelta);
+    await applyUserLandingStatsDelta(ctx, userId, statsDelta);
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.stats.cache.invalidateLandingMetricsCache,
+      {
+        userId,
+      },
+    );
 
     return {
       created: true,
