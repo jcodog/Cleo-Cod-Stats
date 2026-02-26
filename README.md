@@ -20,6 +20,20 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Type checking with tsgo
+
+This project uses TypeScript Native Preview (`@typescript/native-preview`) for CLI type-checking.
+
+- Run `bun run typecheck` (or `npm run typecheck`) to type-check with `tsgo`.
+- The `build` script runs `tsgo` before `next build`.
+- `typescript` is removed from direct devDependencies; `tsgo` is the project type-check CLI.
+
+If you want editor support in VS Code, install **TypeScript (Native Preview)** and enable:
+
+```json
+"typescript.experimental.useTsgo": true
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
