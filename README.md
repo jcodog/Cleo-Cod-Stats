@@ -39,28 +39,47 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 Required env vars:
 
-- `OAUTH_CLIENT_ID`
-- `OAUTH_CLIENT_SECRET`
 - `OAUTH_JWT_SECRET`
-- `OAUTH_AUDIENCE`
 - `OAUTH_ALLOWED_REDIRECT_URIS` (comma-separated exact allowlist)
 
 Optional env vars:
 
+- `OAUTH_AUDIENCE` (defaults to `OAUTH_RESOURCE`; if set, must match `OAUTH_RESOURCE`)
+- `OAUTH_CLIENT_ID` + `OAUTH_CLIENT_SECRET` (set both for static client mode; omit both for dynamic client registration only)
+- `OAUTH_RESOURCE` (canonical resource identifier; defaults to request origin)
 - `OAUTH_ISSUER` (defaults to request origin)
 - `OAUTH_ALLOWED_SCOPES` (comma-separated)
+- `OAUTH_RESOURCE_DOCUMENTATION`
 
 Routes:
 
 - `GET /oauth/authorize`
+- `POST /oauth/register`
 - `POST /oauth/token`
 - `POST /oauth/revoke`
 - `GET /.well-known/oauth-authorization-server`
+- `GET /.well-known/oauth-protected-resource`
 
 Example authorize URL:
 
 ```text
-https://your-app.example.com/oauth/authorize?response_type=code&client_id=cleo-chatgpt-app&redirect_uri=https%3A%2F%2Fchatgpt.com%2Fconnector_platform_oauth_redirect&scope=stats.read&state=7f9cb3ea2e6f4f2f8c8d4df83947dca1&code_challenge=4h9u8hdW4XUrpQy6b-0YjXwM0B0uHhPwV6nW5zJ5lM0&code_challenge_method=S256
+https://your-app.example.com/oauth/authorize?response_type=code&client_id=cleo-chatgpt-app&redirect_uri=https%3A%2F%2Fchatgpt.com%2Fconnector_platform_oauth_redirect&scope=stats.read&state=7f9cb3ea2e6f4f2f8c8d4df83947dca1&resource=https%3A%2F%2Fyour-app.example.com&code_challenge=4h9u8hdW4XUrpQy6b-0YjXwM0B0uHhPwV6nW5zJ5lM0&code_challenge_method=S256
+```
+
+Example dynamic client registration:
+
+```bash
+curl -X POST "https://your-app.example.com/oauth/register" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "redirect_uris": [
+      "https://chatgpt.com/connector_platform_oauth_redirect",
+      "https://platform.openai.com/apps-manage/oauth"
+    ],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none"
+  }'
 ```
 
 Example authorization code exchange:
@@ -72,5 +91,19 @@ curl -X POST "https://your-app.example.com/oauth/token" \
   --data-urlencode "grant_type=authorization_code" \
   --data-urlencode "code=<authorization_code>" \
   --data-urlencode "redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect" \
+  --data-urlencode "resource=https://your-app.example.com" \
+  --data-urlencode "code_verifier=<pkce_code_verifier>"
+```
+
+If your registered client uses `token_endpoint_auth_method=none`, omit basic auth and pass only `client_id`:
+
+```bash
+curl -X POST "https://your-app.example.com/oauth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=authorization_code" \
+  --data-urlencode "client_id=<dynamic_client_id>" \
+  --data-urlencode "code=<authorization_code>" \
+  --data-urlencode "redirect_uri=https://chatgpt.com/connector_platform_oauth_redirect" \
+  --data-urlencode "resource=https://your-app.example.com" \
   --data-urlencode "code_verifier=<pkce_code_verifier>"
 ```

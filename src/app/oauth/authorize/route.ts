@@ -6,8 +6,10 @@ import { generateRandomToken, sha256Base64Url } from "@/lib/server/oauth/crypto"
 import {
   getOAuthServerConfig,
   isAllowedRedirectUri,
+  normalizeResourceIdentifier,
   normalizeRedirectUri,
 } from "@/lib/server/oauth/config";
+import { resolveOAuthClient } from "@/lib/server/oauth/clients";
 import {
   authorizeRedirectResponse,
   getSingleSearchParam,
@@ -65,6 +67,7 @@ export async function GET(request: Request) {
   let redirectUriRaw: string | null;
   let scopeRaw: string | null;
   let state: string | null;
+  let resource: string | null;
   let codeChallenge: string | null;
   let codeChallengeMethodRaw: string | null;
 
@@ -74,6 +77,7 @@ export async function GET(request: Request) {
     redirectUriRaw = getSingleSearchParam(params, "redirect_uri");
     scopeRaw = getSingleSearchParam(params, "scope");
     state = getSingleSearchParam(params, "state");
+    resource = getSingleSearchParam(params, "resource");
     codeChallenge = getSingleSearchParam(params, "code_challenge");
     codeChallengeMethodRaw = getSingleSearchParam(
       params,
@@ -109,12 +113,67 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!clientId || clientId !== config.clientId) {
+  if (!clientId || clientId.length > 200) {
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_request",
+      "client_id is required",
+    );
+  }
+
+  let normalizedResource: string | null = null;
+  if (resource) {
+    try {
+      normalizedResource = normalizeResourceIdentifier(resource);
+    } catch {
+      normalizedResource = null;
+    }
+  }
+
+  if (!normalizedResource || normalizedResource !== config.resource) {
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_request",
+      "resource is required and must match configured resource server",
+    );
+  }
+
+  const client = await resolveOAuthClient(clientId, requestUrl.origin);
+  if (!client) {
     return authorizeError(
       redirectUri,
       state,
       "invalid_client",
       "Unknown client_id",
+    );
+  }
+
+  if (!client.responseTypes.includes("code")) {
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_client",
+      "Client does not support code response_type",
+    );
+  }
+
+  if (!client.grantTypes.includes("authorization_code")) {
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_client",
+      "Client does not support authorization_code grant",
+    );
+  }
+
+  if (!client.redirectUris.includes(redirectUri)) {
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_request",
+      "redirect_uri is not registered for client",
     );
   }
 
@@ -204,6 +263,8 @@ export async function GET(request: Request) {
     await fetchMutation(
       api.mutations.oauth.createAuthorizationCode,
       {
+        clientId,
+        resource: normalizedResource,
         codeHash,
         stateHash,
         sessionId,

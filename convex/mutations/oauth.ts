@@ -87,8 +87,57 @@ async function updateLinkedUser(
   });
 }
 
+export const registerClient = mutation({
+  args: {
+    clientId: v.string(),
+    clientSecretHash: v.optional(v.string()),
+    tokenEndpointAuthMethod: v.union(
+      v.literal("none"),
+      v.literal("client_secret_post"),
+      v.literal("client_secret_basic"),
+    ),
+    redirectUris: v.array(v.string()),
+    grantTypes: v.array(v.string()),
+    responseTypes: v.array(v.string()),
+    scope: v.optional(v.string()),
+    clientName: v.optional(v.string()),
+    clientUri: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("oauthClients")
+      .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
+      .unique();
+
+    if (existing && existing.revokedAt === undefined) {
+      throw new Error("client_id_already_exists");
+    }
+
+    const now = Date.now();
+
+    await ctx.db.insert("oauthClients", {
+      clientId: args.clientId,
+      clientSecretHash: args.clientSecretHash,
+      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
+      redirectUris: args.redirectUris,
+      grantTypes: args.grantTypes,
+      responseTypes: args.responseTypes,
+      scope: args.scope,
+      clientName: args.clientName,
+      clientUri: args.clientUri,
+      revokedAt: undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { ok: true as const };
+  },
+});
+
 export const createAuthorizationCode = mutation({
   args: {
+    clientId: v.string(),
+    resource: v.string(),
     codeHash: v.string(),
     stateHash: v.string(),
     sessionId: v.string(),
@@ -131,6 +180,8 @@ export const createAuthorizationCode = mutation({
 
     await ctx.db.insert("oauthAuthCodes", {
       userId: user._id,
+      clientId: args.clientId,
+      resource: args.resource,
       codeHash: args.codeHash,
       stateHash: args.stateHash,
       sessionId: args.sessionId,
@@ -142,12 +193,14 @@ export const createAuthorizationCode = mutation({
       createdAt: now,
     });
 
-    return { ok: true, userId: user._id };
+    return { ok: true as const, userId: user._id };
   },
 });
 
 export const exchangeAuthorizationCode = mutation({
   args: {
+    clientId: v.string(),
+    resource: v.string(),
     codeHash: v.string(),
     redirectUri: v.string(),
     codeVerifierHash: v.optional(v.string()),
@@ -174,7 +227,11 @@ export const exchangeAuthorizationCode = mutation({
 
     await ctx.db.delete(authCode._id);
 
-    if (authCode.redirectUri !== args.redirectUri) {
+    if (
+      authCode.redirectUri !== args.redirectUri ||
+      authCode.clientId !== args.clientId ||
+      authCode.resource !== args.resource
+    ) {
       return { ok: false as const, error: "invalid_grant" as const };
     }
 
@@ -203,6 +260,8 @@ export const exchangeAuthorizationCode = mutation({
     await ctx.db.insert("oauthTokens", {
       userId: user._id,
       provider: OAUTH_PROVIDER,
+      clientId: args.clientId,
+      resource: args.resource,
       refreshTokenHash: args.refreshTokenHash,
       refreshTokenExpiresAt: args.refreshTokenExpiresAt,
       scopes,
@@ -224,12 +283,15 @@ export const exchangeAuthorizationCode = mutation({
       userId: user._id,
       clerkUserId: user.clerkUserId,
       scopes,
+      resource: args.resource,
     };
   },
 });
 
 export const rotateRefreshToken = mutation({
   args: {
+    clientId: v.string(),
+    resource: v.string(),
     refreshTokenHash: v.string(),
     newRefreshTokenHash: v.string(),
     newRefreshTokenExpiresAt: v.number(),
@@ -252,7 +314,9 @@ export const rotateRefreshToken = mutation({
     if (
       existingToken.provider !== OAUTH_PROVIDER ||
       existingToken.revokedAt !== undefined ||
-      existingToken.refreshTokenExpiresAt <= now
+      existingToken.refreshTokenExpiresAt <= now ||
+      existingToken.clientId !== args.clientId ||
+      existingToken.resource !== args.resource
     ) {
       return { ok: false as const, error: "invalid_grant" as const };
     }
@@ -279,6 +343,8 @@ export const rotateRefreshToken = mutation({
     await ctx.db.insert("oauthTokens", {
       userId: existingToken.userId,
       provider: OAUTH_PROVIDER,
+      clientId: args.clientId,
+      resource: args.resource,
       refreshTokenHash: args.newRefreshTokenHash,
       refreshTokenExpiresAt: args.newRefreshTokenExpiresAt,
       scopes,
@@ -300,12 +366,14 @@ export const rotateRefreshToken = mutation({
       userId: existingToken.userId,
       clerkUserId: user.clerkUserId,
       scopes,
+      resource: args.resource,
     };
   },
 });
 
 export const revokeByRefreshToken = mutation({
   args: {
+    clientId: v.string(),
     refreshTokenHash: v.string(),
   },
   handler: async (ctx, args) => {
@@ -318,7 +386,11 @@ export const revokeByRefreshToken = mutation({
       )
       .unique();
 
-    if (!token || token.provider !== OAUTH_PROVIDER) {
+    if (
+      !token ||
+      token.provider !== OAUTH_PROVIDER ||
+      token.clientId !== args.clientId
+    ) {
       return { ok: true as const, revoked: false as const };
     }
 

@@ -2,9 +2,13 @@ import { fetchMutation } from "convex/nextjs";
 
 import { api } from "@/convex/_generated/api";
 import { getOAuthServerConfig } from "@/lib/server/oauth/config";
-import { safeStringEqual, sha256Base64Url } from "@/lib/server/oauth/crypto";
 import {
-  getClientCredentials,
+  resolveOAuthClient,
+  validateOAuthClientAuthentication,
+} from "@/lib/server/oauth/clients";
+import { sha256Base64Url } from "@/lib/server/oauth/crypto";
+import {
+  getClientAuthenticationInput,
   getSingleSearchParam,
   oauthErrorResponse,
   parseOAuthRequestBody,
@@ -27,9 +31,8 @@ function invalidClientResponse() {
 export async function POST(request: Request) {
   const requestUrl = new URL(request.url);
 
-  let config;
   try {
-    config = getOAuthServerConfig(requestUrl.origin);
+    getOAuthServerConfig(requestUrl.origin);
   } catch (error) {
     console.error("OAuth revoke env config error", error);
     return oauthErrorResponse(
@@ -46,17 +49,15 @@ export async function POST(request: Request) {
     return oauthErrorResponse("invalid_request", 400, "Invalid request body");
   }
 
-  let clientCredentials;
+  let authInput;
   try {
-    clientCredentials = getClientCredentials(request, params);
+    authInput = getClientAuthenticationInput(request, params);
   } catch {
     return invalidClientResponse();
   }
 
-  if (
-    !safeStringEqual(clientCredentials.clientId, config.clientId) ||
-    !safeStringEqual(clientCredentials.clientSecret, config.clientSecret)
-  ) {
+  const client = await resolveOAuthClient(authInput.clientId, requestUrl.origin);
+  if (!client || !validateOAuthClientAuthentication(client, authInput)) {
     return invalidClientResponse();
   }
 
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
 
   try {
     await fetchMutation(api.mutations.oauth.revokeByRefreshToken, {
+      clientId: client.clientId,
       refreshTokenHash: sha256Base64Url(token),
     });
   } catch (error) {

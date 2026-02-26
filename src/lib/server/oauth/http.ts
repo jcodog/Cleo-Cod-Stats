@@ -16,6 +16,12 @@ type ClientCredentials = {
   clientSecret: string;
 };
 
+export type OAuthClientAuthenticationInput = {
+  clientId: string;
+  clientSecret: string | null;
+  usedBasicAuth: boolean;
+};
+
 export function oauthErrorResponse(
   error: OAuthErrorCode,
   status: number,
@@ -148,6 +154,21 @@ export function getClientCredentials(
   request: Request,
   params: URLSearchParams,
 ): ClientCredentials {
+  const authInput = getClientAuthenticationInput(request, params);
+  if (!authInput.clientSecret) {
+    throw new Error("missing_client_credentials");
+  }
+
+  return {
+    clientId: authInput.clientId,
+    clientSecret: authInput.clientSecret,
+  };
+}
+
+export function getClientAuthenticationInput(
+  request: Request,
+  params: URLSearchParams,
+): OAuthClientAuthenticationInput {
   const basicCredentials = parseBasicAuthorizationHeader(
     request.headers.get("authorization"),
   );
@@ -163,15 +184,20 @@ export function getClientCredentials(
       throw new Error("client_secret_mismatch");
     }
 
-    return basicCredentials;
+    return {
+      clientId: basicCredentials.clientId,
+      clientSecret: basicCredentials.clientSecret,
+      usedBasicAuth: true,
+    };
   }
 
-  if (!bodyClientId || !bodyClientSecret) {
-    throw new Error("missing_client_credentials");
+  if (!bodyClientId) {
+    throw new Error("missing_client_id");
   }
 
   return {
     clientId: bodyClientId,
     clientSecret: bodyClientSecret,
+    usedBasicAuth: false,
   };
 }

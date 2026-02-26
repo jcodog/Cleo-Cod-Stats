@@ -2,17 +2,19 @@ import { fetchMutation } from "convex/nextjs";
 
 import { api } from "@/convex/_generated/api";
 import {
-  generateRandomToken,
-  safeStringEqual,
-  sha256Base64Url,
-} from "@/lib/server/oauth/crypto";
-import {
   getOAuthServerConfig,
   isAllowedRedirectUri,
+  normalizeResourceIdentifier,
   normalizeRedirectUri,
 } from "@/lib/server/oauth/config";
 import {
-  getClientCredentials,
+  resolveOAuthClient,
+  validateOAuthClientAuthentication,
+  type ResolvedOAuthClient,
+} from "@/lib/server/oauth/clients";
+import { generateRandomToken, sha256Base64Url } from "@/lib/server/oauth/crypto";
+import {
+  getClientAuthenticationInput,
   getSingleSearchParam,
   oauthErrorResponse,
   oauthSuccessResponse,
@@ -86,10 +88,15 @@ function buildTokenResponse(
 
 async function handleAuthorizationCodeGrant(
   params: URLSearchParams,
-  requestOrigin: string,
+  args: {
+    client: ResolvedOAuthClient;
+    resource: string;
+    jwtSecret: string;
+    issuer: string;
+    allowedRedirectUris: Set<string>;
+    allowedScopes: Set<string> | null;
+  },
 ) {
-  const config = getOAuthServerConfig(requestOrigin);
-
   const code = getSingleSearchParam(params, "code");
   if (!code || code.length < 32 || code.length > 512) {
     return oauthErrorResponse("invalid_grant", 400, "Invalid authorization code");
@@ -107,8 +114,16 @@ async function handleAuthorizationCodeGrant(
     return oauthErrorResponse("invalid_request", 400, "Invalid redirect_uri");
   }
 
-  if (!isAllowedRedirectUri(redirectUri, config.allowedRedirectUris)) {
+  if (!isAllowedRedirectUri(redirectUri, args.allowedRedirectUris)) {
     return oauthErrorResponse("invalid_request", 400, "redirect_uri is not allowlisted");
+  }
+
+  if (!args.client.redirectUris.includes(redirectUri)) {
+    return oauthErrorResponse(
+      "invalid_grant",
+      400,
+      "redirect_uri is not registered for client",
+    );
   }
 
   let requestedScopes: string[] | undefined;
@@ -116,7 +131,7 @@ async function handleAuthorizationCodeGrant(
   if (scopeRaw !== null) {
     try {
       const parsed = parseScope(scopeRaw);
-      assertScopesAllowed(parsed.scopes, config.allowedScopes);
+      assertScopesAllowed(parsed.scopes, args.allowedScopes);
       requestedScopes = parsed.scopes;
     } catch {
       return oauthErrorResponse("invalid_scope", 400, "Invalid scope");
@@ -148,6 +163,8 @@ async function handleAuthorizationCodeGrant(
 
   try {
     exchangeResult = await fetchMutation(api.mutations.oauth.exchangeAuthorizationCode, {
+      clientId: args.client.clientId,
+      resource: args.resource,
       codeHash: sha256Base64Url(code),
       redirectUri,
       codeVerifierHash: sha256Base64Url(codeVerifier),
@@ -175,19 +192,23 @@ async function handleAuthorizationCodeGrant(
       refreshToken,
     },
     {
-      jwtSecret: config.jwtSecret,
-      issuer: config.issuer,
-      audience: config.audience,
+      jwtSecret: args.jwtSecret,
+      issuer: args.issuer,
+      audience: args.resource,
     },
   );
 }
 
 async function handleRefreshTokenGrant(
   params: URLSearchParams,
-  requestOrigin: string,
+  args: {
+    client: ResolvedOAuthClient;
+    resource: string;
+    jwtSecret: string;
+    issuer: string;
+    allowedScopes: Set<string> | null;
+  },
 ) {
-  const config = getOAuthServerConfig(requestOrigin);
-
   const refreshToken = getSingleSearchParam(params, "refresh_token");
   if (!refreshToken || refreshToken.length < 32 || refreshToken.length > 512) {
     return oauthErrorResponse("invalid_grant", 400, "Invalid refresh_token");
@@ -198,7 +219,7 @@ async function handleRefreshTokenGrant(
   if (scopeRaw !== null) {
     try {
       const parsed = parseScope(scopeRaw);
-      assertScopesAllowed(parsed.scopes, config.allowedScopes);
+      assertScopesAllowed(parsed.scopes, args.allowedScopes);
       requestedScopes = parsed.scopes;
     } catch {
       return oauthErrorResponse("invalid_scope", 400, "Invalid scope");
@@ -220,6 +241,8 @@ async function handleRefreshTokenGrant(
 
   try {
     rotateResult = await fetchMutation(api.mutations.oauth.rotateRefreshToken, {
+      clientId: args.client.clientId,
+      resource: args.resource,
       refreshTokenHash: sha256Base64Url(refreshToken),
       newRefreshTokenHash: sha256Base64Url(newRefreshToken),
       newRefreshTokenExpiresAt: millisecondsFromNow(REFRESH_TOKEN_TTL_SECONDS),
@@ -245,9 +268,9 @@ async function handleRefreshTokenGrant(
       refreshToken: newRefreshToken,
     },
     {
-      jwtSecret: config.jwtSecret,
-      issuer: config.issuer,
-      audience: config.audience,
+      jwtSecret: args.jwtSecret,
+      issuer: args.issuer,
+      audience: args.resource,
     },
   );
 }
@@ -274,20 +297,6 @@ export async function POST(request: Request) {
     return oauthErrorResponse("invalid_request", 400, "Invalid request body");
   }
 
-  let clientCredentials;
-  try {
-    clientCredentials = getClientCredentials(request, params);
-  } catch {
-    return invalidClientResponse();
-  }
-
-  if (
-    !safeStringEqual(clientCredentials.clientId, config.clientId) ||
-    !safeStringEqual(clientCredentials.clientSecret, config.clientSecret)
-  ) {
-    return invalidClientResponse();
-  }
-
   let grantType: string | null;
   try {
     grantType = getSingleSearchParam(params, "grant_type");
@@ -299,12 +308,65 @@ export async function POST(request: Request) {
     return oauthErrorResponse("invalid_request", 400, "Missing grant_type");
   }
 
+  let authInput;
+  try {
+    authInput = getClientAuthenticationInput(request, params);
+  } catch {
+    return invalidClientResponse();
+  }
+
+  const client = await resolveOAuthClient(authInput.clientId, requestUrl.origin);
+  if (!client || !validateOAuthClientAuthentication(client, authInput)) {
+    return invalidClientResponse();
+  }
+
+  if (!client.grantTypes.includes(grantType)) {
+    return oauthErrorResponse("invalid_request", 400, "grant_type not allowed for client");
+  }
+
+  let resource: string | null;
+  try {
+    resource = getSingleSearchParam(params, "resource");
+  } catch {
+    return oauthErrorResponse("invalid_request", 400, "Duplicate resource");
+  }
+
+  let normalizedResource: string | null = null;
+  if (resource) {
+    try {
+      normalizedResource = normalizeResourceIdentifier(resource);
+    } catch {
+      normalizedResource = null;
+    }
+  }
+
+  if (!normalizedResource || normalizedResource !== config.resource) {
+    return oauthErrorResponse(
+      "invalid_request",
+      400,
+      "resource is required and must match configured resource server",
+    );
+  }
+
   if (grantType === "authorization_code") {
-    return handleAuthorizationCodeGrant(params, requestUrl.origin);
+    return handleAuthorizationCodeGrant(params, {
+      client,
+      resource: normalizedResource,
+      jwtSecret: config.jwtSecret,
+      issuer: config.issuer,
+      allowedRedirectUris: config.allowedRedirectUris,
+      allowedScopes: config.allowedScopes,
+    });
   }
 
   if (grantType === "refresh_token") {
-    return handleRefreshTokenGrant(params, requestUrl.origin);
+    return handleRefreshTokenGrant(params, {
+      client,
+      resource: normalizedResource,
+      jwtSecret: config.jwtSecret,
+      issuer: config.issuer,
+      allowedScopes: config.allowedScopes,
+    });
   }
 
   return oauthErrorResponse("invalid_request", 400, "Unsupported grant_type");

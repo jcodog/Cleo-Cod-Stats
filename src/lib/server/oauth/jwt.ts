@@ -20,7 +20,7 @@ export type OAuthAccessTokenClaims = {
 
 type VerifyOptions = {
   expectedIssuer: string;
-  expectedAudience: string;
+  expectedAudiences: string[];
 };
 
 function toBase64UrlJson(value: unknown) {
@@ -95,23 +95,34 @@ export function verifyOAuthAccessTokenJwt(
     throw new Error("Invalid JWT payload");
   }
 
+  const claims = payload as OAuthAccessTokenClaims;
+
   const now = nowInSeconds();
 
-  if (payload.exp <= now) {
+  if (claims.exp <= now) {
     throw new Error("Token expired");
   }
 
-  if (payload.iat > now + 30) {
+  if (claims.iat > now + 30) {
     throw new Error("Token iat is in the future");
   }
 
-  if (!safeStringEqual(payload.iss, options.expectedIssuer)) {
+  if (!safeStringEqual(claims.iss, options.expectedIssuer)) {
     throw new Error("Invalid token issuer");
   }
 
-  if (!safeStringEqual(payload.aud, options.expectedAudience)) {
+  const expectedAudiences = options.expectedAudiences.filter(
+    (audience): audience is string =>
+      typeof audience === "string" && audience.length > 0,
+  );
+
+  const audienceMatch = expectedAudiences.some((audience) =>
+    safeStringEqual(claims.aud, audience),
+  );
+
+  if (!audienceMatch) {
     throw new Error("Invalid token audience");
   }
 
-  return payload as OAuthAccessTokenClaims;
+  return claims;
 }

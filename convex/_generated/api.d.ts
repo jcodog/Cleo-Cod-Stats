@@ -77,11 +77,13 @@ export declare const api: {
         "mutation",
         "public",
         {
+          clientId: string;
           codeChallenge?: string;
           codeChallengeMethod?: "S256";
           codeHash: string;
           expiresAt: number;
           redirectUri: string;
+          resource: string;
           scopes: Array<string>;
           sessionId: string;
           stateHash: string;
@@ -92,29 +94,52 @@ export declare const api: {
         "mutation",
         "public",
         {
+          clientId: string;
           codeHash: string;
           codeVerifierHash?: string;
           redirectUri: string;
           refreshTokenExpiresAt: number;
           refreshTokenHash: string;
           requestedScopes?: Array<string>;
+          resource: string;
+        },
+        any
+      >;
+      registerClient: FunctionReference<
+        "mutation",
+        "public",
+        {
+          clientId: string;
+          clientName?: string;
+          clientSecretHash?: string;
+          clientUri?: string;
+          grantTypes: Array<string>;
+          redirectUris: Array<string>;
+          responseTypes: Array<string>;
+          scope?: string;
+          tokenEndpointAuthMethod:
+            | "none"
+            | "client_secret_post"
+            | "client_secret_basic";
         },
         any
       >;
       revokeByRefreshToken: FunctionReference<
         "mutation",
         "public",
-        { refreshTokenHash: string },
+        { clientId: string; refreshTokenHash: string },
         any
       >;
       rotateRefreshToken: FunctionReference<
         "mutation",
         "public",
         {
+          clientId: string;
           newRefreshTokenExpiresAt: number;
           newRefreshTokenHash: string;
           refreshTokenHash: string;
           requestedScopes?: Array<string>;
+          resource: string;
         },
         any
       >;
@@ -159,6 +184,14 @@ export declare const api: {
     };
   };
   queries: {
+    oauth: {
+      getClientByClientId: FunctionReference<
+        "query",
+        "public",
+        { clientId: string },
+        any
+      >;
+    };
     stats: {
       daily: {
         getDailyGamesForSession: FunctionReference<

@@ -170,12 +170,14 @@ export type DataModel = {
   };
   oauthAuthCodes: {
     document: {
+      clientId: string;
       codeChallenge?: string;
       codeChallengeMethod?: "S256";
       codeHash: string;
       createdAt: number;
       expiresAt: number;
       redirectUri: string;
+      resource: string;
       scopes: Array<string>;
       sessionId: string;
       stateHash: string;
@@ -186,12 +188,14 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "clientId"
       | "codeChallenge"
       | "codeChallengeMethod"
       | "codeHash"
       | "createdAt"
       | "expiresAt"
       | "redirectUri"
+      | "resource"
       | "scopes"
       | "sessionId"
       | "stateHash"
@@ -206,13 +210,58 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  oauthClients: {
+    document: {
+      clientId: string;
+      clientName?: string;
+      clientSecretHash?: string;
+      clientUri?: string;
+      createdAt: number;
+      grantTypes: Array<string>;
+      redirectUris: Array<string>;
+      responseTypes: Array<string>;
+      revokedAt?: number;
+      scope?: string;
+      tokenEndpointAuthMethod:
+        | "none"
+        | "client_secret_post"
+        | "client_secret_basic";
+      updatedAt: number;
+      _id: Id<"oauthClients">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "clientId"
+      | "clientName"
+      | "clientSecretHash"
+      | "clientUri"
+      | "createdAt"
+      | "grantTypes"
+      | "redirectUris"
+      | "responseTypes"
+      | "revokedAt"
+      | "scope"
+      | "tokenEndpointAuthMethod"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_clientId: ["clientId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   oauthTokens: {
     document: {
+      clientId: string;
       createdAt: number;
       lastUsedAt?: number;
       provider: "chatgpt_app";
       refreshTokenExpiresAt: number;
       refreshTokenHash: string;
+      resource: string;
       revokedAt?: number;
       scopes: Array<string>;
       userId: Id<"users">;
@@ -222,11 +271,13 @@ export type DataModel = {
     fieldPaths:
       | "_creationTime"
       | "_id"
+      | "clientId"
       | "createdAt"
       | "lastUsedAt"
       | "provider"
       | "refreshTokenExpiresAt"
       | "refreshTokenHash"
+      | "resource"
       | "revokedAt"
       | "scopes"
       | "userId";
