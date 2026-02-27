@@ -73,6 +73,12 @@ export declare const api: {
   };
   mutations: {
     chatgpt: {
+      disconnectByUserId: FunctionReference<
+        "mutation",
+        "public",
+        { userId: Id<"users"> },
+        any
+      >;
       touchConnectionLastUsedAt: FunctionReference<
         "mutation",
         "public",

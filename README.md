@@ -94,6 +94,7 @@ Account settings linking:
 Minimum scopes by App API endpoint:
 
 - `GET /api/app/profile` -> `profile.read`
+- `POST /api/app/disconnect` -> `profile.read`
 - `GET /api/app/stats/summary` -> `stats.read`
 - `GET /api/app/stats/daily` -> `stats.read`
 - `GET /api/app/stats/recent` -> `stats.read`
@@ -149,3 +150,54 @@ curl -X POST "https://your-app.example.com/oauth/token" \
   --data-urlencode "resource=https://your-app.example.com" \
   --data-urlencode "code_verifier=<pkce_code_verifier>"
 ```
+
+## ChatGPT App (Apps SDK)
+
+The MCP endpoint is served at:
+
+- `https://<your-host>/mcp`
+
+Tools exposed by the connector:
+
+- `codstats_open` (render the compact dashboard UI)
+- `codstats_get_home` (loads Today, last session, and recent matches)
+- `codstats_get_settings` (loads connected user details)
+- `codstats_disconnect` (revokes the current app connection)
+
+### Run locally
+
+1. Start your app with `npm run dev`.
+2. Expose port 3000 over HTTPS (for example, `ngrok http 3000`).
+3. In ChatGPT, enable developer mode: `Settings -> Apps & Connectors -> Advanced settings -> Developer mode`.
+4. Create a connector with URL `https://<your-public-host>/mcp`.
+5. Start a new chat, enable your connector, and prompt: `Open CodStats dashboard`.
+
+### What to verify in developer mode
+
+- Home tab triggers calls to:
+  - `GET /api/app/stats/summary`
+  - `GET /api/app/stats/recent`
+- Settings tab triggers call to:
+  - `GET /api/app/profile`
+- Disconnect button triggers call to:
+  - `POST /api/app/disconnect`
+- Loading and error states appear correctly when requests are pending or fail.
+
+### Local automated test
+
+- Run all ChatGPT app tests:
+  - `npm run test:app`
+- Run API route tests only:
+  - `npm run test:app:api`
+- Run MCP server/tool tests only:
+  - `npm run test:app:mcp`
+
+### Smoke test against running server
+
+- Start the app locally (`npm run dev`) and expose HTTPS.
+- Run smoke checks:
+  - `npm run test:app:smoke -- --base-url https://<your-public-host>`
+- Optional authenticated smoke mode:
+  - `CHATGPT_APP_BEARER_TOKEN=<access_token> npm run test:app:smoke -- --base-url https://<your-public-host>`
+- Optional destructive disconnect validation (disabled by default):
+  - `CHATGPT_APP_BEARER_TOKEN=<access_token> CHATGPT_APP_ALLOW_DISCONNECT=true npm run test:app:smoke -- --base-url https://<your-public-host>`

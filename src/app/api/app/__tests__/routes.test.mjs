@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { handleDisconnectPost } from "../disconnect/route.ts";
 import { handleProfileGet } from "../profile/route.ts";
 import { handleDailyGet } from "../stats/daily/route.ts";
 import { handleRecentGet } from "../stats/recent/route.ts";
@@ -112,6 +113,77 @@ describe("/api/app/profile", () => {
     expect(requiredScopes).toEqual(["profile.read"]);
     expect(body.ok).toBe(true);
     expect(body.profile.discordId).toBe(ACTIVE_USER.discordId);
+  });
+});
+
+describe("/api/app/disconnect", () => {
+  it("returns 401 when auth fails", async () => {
+    let disconnected = false;
+
+    const response = await handleDisconnectPost(
+      createRequest("https://example.test/api/app/disconnect"),
+      {
+        authenticate: async () => createAuthFailure(401),
+        disconnectByUserId: async () => {
+          disconnected = true;
+          return { ok: true, revokedTokenCount: 1, revokedAt: 1 };
+        },
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(disconnected).toBe(false);
+  });
+
+  it("returns 500 when disconnect mutation fails", async () => {
+    const response = await handleDisconnectPost(
+      createRequest("https://example.test/api/app/disconnect"),
+      {
+        authenticate: async () => createAuthSuccess(["profile.read"]),
+        disconnectByUserId: async () => ({
+          ok: false,
+          error: "user_not_found",
+        }),
+      },
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("disconnect_failed");
+  });
+
+  it("returns 200 when disconnect succeeds", async () => {
+    let requiredScopes = null;
+    let disconnectedUserId = null;
+
+    const response = await handleDisconnectPost(
+      createRequest("https://example.test/api/app/disconnect"),
+      {
+        authenticate: async (_request, scopes) => {
+          requiredScopes = scopes;
+          return createAuthSuccess(["profile.read"]);
+        },
+        disconnectByUserId: async (userId) => {
+          disconnectedUserId = userId;
+          return {
+            ok: true,
+            revokedTokenCount: 2,
+            revokedAt: 123,
+          };
+        },
+      },
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(requiredScopes).toEqual(["profile.read"]);
+    expect(disconnectedUserId).toBe(ACTIVE_USER._id);
+    expect(body.ok).toBe(true);
+    expect(body.disconnected).toBe(true);
+    expect(body.revokedTokenCount).toBe(2);
   });
 });
 
