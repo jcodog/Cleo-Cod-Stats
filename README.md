@@ -14,6 +14,18 @@ pnpm dev
 bun dev
 ```
 
+As this project uses Convex, to properly test and develop re recommend the following dev server start script:
+
+```bash
+npm run start:dev
+# or
+yarn start:dev
+# or
+pnpm start:dev
+# or
+bun run start:dev
+```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
