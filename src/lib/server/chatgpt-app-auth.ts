@@ -14,13 +14,7 @@ export const APP_API_NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
 } as const;
 
-export type RequiredAppScopes =
-  | string[]
-  | {
-      allOf?: string[];
-      anyOf?: string[];
-      challengeScope?: string;
-    };
+type RequiredAppScopes = string[];
 
 type AppUserRecord = {
   _id: Id<"users">;
@@ -56,12 +50,6 @@ export type AuthenticatedAppRequestResult =
       response: NextResponse;
     };
 
-type NormalizedScopeRequirement = {
-  allOf: string[];
-  anyOf: string[];
-  challengeScope?: string;
-};
-
 function buildAuthFailureResponse(request: Request, params: AuthFailureParams) {
   const requestUrl = new URL(request.url);
 
@@ -93,29 +81,6 @@ function normalizeRequiredScopes(requiredScopes: string[]) {
         .filter((scope) => scope.length > 0),
     ),
   );
-}
-
-function normalizeScopeRequirement(
-  requirement: RequiredAppScopes,
-): NormalizedScopeRequirement {
-  if (Array.isArray(requirement)) {
-    const allOf = normalizeRequiredScopes(requirement);
-    return {
-      allOf,
-      anyOf: [],
-      challengeScope: allOf.join(" "),
-    };
-  }
-
-  const allOf = normalizeRequiredScopes(requirement.allOf ?? []);
-  const anyOf = normalizeRequiredScopes(requirement.anyOf ?? []);
-  const challengeScope = requirement.challengeScope?.trim();
-
-  return {
-    allOf,
-    anyOf,
-    challengeScope: challengeScope && challengeScope.length > 0 ? challengeScope : undefined,
-  };
 }
 
 function getMissingScopes(tokenScopes: string[], requiredScopes: string[]) {
@@ -155,49 +120,21 @@ export async function requireAuthenticatedAppRequest(
     };
   }
 
-  const scopeRequirement = normalizeScopeRequirement(requiredScopes);
-  const missingAllOfScopes = getMissingScopes(
+  const normalizedRequiredScopes = normalizeRequiredScopes(requiredScopes);
+  const missingScopes = getMissingScopes(
     verifiedToken.scopes,
-    scopeRequirement.allOf,
+    normalizedRequiredScopes,
   );
 
-  const hasAnyOfScope =
-    scopeRequirement.anyOf.length === 0 ||
-    scopeRequirement.anyOf.some((scope) => verifiedToken.scopes.includes(scope));
-
-  if (missingAllOfScopes.length > 0 || !hasAnyOfScope) {
-    const requirementDescription = [
-      missingAllOfScopes.length > 0
-        ? `all scopes: ${scopeRequirement.allOf.join(" ")}`
-        : null,
-      !hasAnyOfScope && scopeRequirement.anyOf.length > 0
-        ? `one of: ${scopeRequirement.anyOf.join(" ")}`
-        : null,
-    ]
-      .filter((value): value is string => value !== null)
-      .join(" and ");
+  if (missingScopes.length > 0) {
 
     return {
       ok: false,
       response: buildAuthFailureResponse(request, {
         status: 403,
         error: "insufficient_scope",
-        description: `Missing required scope requirement: ${requirementDescription}`,
-        scope: (() => {
-          if (scopeRequirement.challengeScope) {
-            return scopeRequirement.challengeScope;
-          }
-
-          if (scopeRequirement.allOf.length > 0) {
-            return scopeRequirement.allOf.join(" ");
-          }
-
-          if (scopeRequirement.anyOf.length > 0) {
-            return scopeRequirement.anyOf.join(" ");
-          }
-
-          return undefined;
-        })(),
+        description: `Missing required scope: ${missingScopes.join(" ")}`,
+        scope: normalizedRequiredScopes.join(" "),
       }),
     };
   }

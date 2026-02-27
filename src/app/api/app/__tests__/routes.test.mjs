@@ -48,11 +48,15 @@ function createAuthFailure(status, error = "invalid_token") {
   };
 }
 
-function createAuthSuccess() {
+function createAuthSuccess(scopes = ["stats.read"]) {
   return {
     ok: true,
     auth: {
-      token: VERIFIED_TOKEN,
+      token: {
+        ...VERIFIED_TOKEN,
+        scope: scopes.join(" "),
+        scopes,
+      },
       user: ACTIVE_USER,
     },
   };
@@ -89,9 +93,13 @@ describe("/api/app/profile", () => {
 
   it("returns 200 with profile when auth succeeds", async () => {
     let touchedUserId = null;
+    let requiredScopes = null;
 
     const response = await handleProfileGet(createRequest("https://example.test/api/app/profile"), {
-      authenticate: async () => createAuthSuccess(),
+      authenticate: async (_request, scopes) => {
+        requiredScopes = scopes;
+        return createAuthSuccess(["profile.read"]);
+      },
       touchConnectionLastUsedAt: async (userId) => {
         touchedUserId = userId;
       },
@@ -101,6 +109,7 @@ describe("/api/app/profile", () => {
 
     expect(response.status).toBe(200);
     expect(touchedUserId).toBe(ACTIVE_USER._id);
+    expect(requiredScopes).toEqual(["profile.read"]);
     expect(body.ok).toBe(true);
     expect(body.profile.discordId).toBe(ACTIVE_USER.discordId);
   });
@@ -156,12 +165,16 @@ describe("/api/app/stats/summary", () => {
   it("returns 200 with summary when auth succeeds", async () => {
     let queriedDiscordId = null;
     let touchedUserId = null;
+    let requiredScopes = null;
     const mockedSummary = { totalMatches: 42, wins: 23 };
 
     const response = await handleSummaryGet(
       createRequest("https://example.test/api/app/stats/summary"),
       {
-        authenticate: async () => createAuthSuccess(),
+        authenticate: async (_request, scopes) => {
+          requiredScopes = scopes;
+          return createAuthSuccess();
+        },
         getSummaryByDiscordId: async (discordId) => {
           queriedDiscordId = discordId;
           return mockedSummary;
@@ -177,6 +190,7 @@ describe("/api/app/stats/summary", () => {
     expect(response.status).toBe(200);
     expect(queriedDiscordId).toBe(ACTIVE_USER.discordId);
     expect(touchedUserId).toBe(ACTIVE_USER._id);
+    expect(requiredScopes).toEqual(["stats.read"]);
     expect(body.ok).toBe(true);
     expect(body.summary).toEqual(mockedSummary);
   });
@@ -233,12 +247,16 @@ describe("/api/app/stats/daily", () => {
     let queriedDiscordId = null;
     let queriedDate = null;
     let touchedUserId = null;
+    let requiredScopes = null;
     const mockedDaily = { totalMatches: 4, wins: 3 };
 
     const response = await handleDailyGet(
       createRequest("https://example.test/api/app/stats/daily?date=2026-02-27"),
       {
-        authenticate: async () => createAuthSuccess(),
+        authenticate: async (_request, scopes) => {
+          requiredScopes = scopes;
+          return createAuthSuccess();
+        },
         getDailyByDiscordId: async (discordId, date) => {
           queriedDiscordId = discordId;
           queriedDate = date;
@@ -256,6 +274,7 @@ describe("/api/app/stats/daily", () => {
     expect(queriedDiscordId).toBe(ACTIVE_USER.discordId);
     expect(queriedDate).toBe("2026-02-27");
     expect(touchedUserId).toBe(ACTIVE_USER._id);
+    expect(requiredScopes).toEqual(["stats.read"]);
     expect(body.ok).toBe(true);
     expect(body.daily).toEqual(mockedDaily);
   });
@@ -312,12 +331,16 @@ describe("/api/app/stats/recent", () => {
     let queriedDiscordId = null;
     let queriedLimit = null;
     let touchedUserId = null;
+    let requiredScopes = null;
     const mockedRecent = { totalMatches: 10, wins: 6 };
 
     const response = await handleRecentGet(
       createRequest("https://example.test/api/app/stats/recent?limit=10"),
       {
-        authenticate: async () => createAuthSuccess(),
+        authenticate: async (_request, scopes) => {
+          requiredScopes = scopes;
+          return createAuthSuccess();
+        },
         getRecentByDiscordId: async (discordId, limit) => {
           queriedDiscordId = discordId;
           queriedLimit = limit;
@@ -335,6 +358,7 @@ describe("/api/app/stats/recent", () => {
     expect(queriedDiscordId).toBe(ACTIVE_USER.discordId);
     expect(queriedLimit).toBe(10);
     expect(touchedUserId).toBe(ACTIVE_USER._id);
+    expect(requiredScopes).toEqual(["stats.read"]);
     expect(body.ok).toBe(true);
     expect(body.recent).toEqual(mockedRecent);
   });

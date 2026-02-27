@@ -62,7 +62,7 @@ Optional env vars:
 - `OAUTH_CLIENT_ID` + `OAUTH_CLIENT_SECRET` (set both for static client mode; omit both for dynamic client registration only)
 - `OAUTH_RESOURCE` (canonical resource identifier; defaults to request origin)
 - `OAUTH_ISSUER` (defaults to request origin)
-- `OAUTH_ALLOWED_SCOPES` (comma-separated)
+- `OAUTH_ALLOWED_SCOPES` (comma-separated, e.g. `profile.read,stats.read`)
 - `OAUTH_RESOURCE_DOCUMENTATION`
 
 Routes:
@@ -73,6 +73,13 @@ Routes:
 - `POST /oauth/revoke`
 - `GET /.well-known/oauth-authorization-server`
 - `GET /.well-known/oauth-protected-resource`
+
+Minimum scopes by App API endpoint:
+
+- `GET /api/app/profile` -> `profile.read`
+- `GET /api/app/stats/summary` -> `stats.read`
+- `GET /api/app/stats/daily` -> `stats.read`
+- `GET /api/app/stats/recent` -> `stats.read`
 
 Example authorize URL:
 
