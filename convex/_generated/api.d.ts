@@ -72,6 +72,14 @@ export declare const api: {
     };
   };
   mutations: {
+    chatgpt: {
+      touchConnectionLastUsedAt: FunctionReference<
+        "mutation",
+        "public",
+        { userId: Id<"users"> },
+        any
+      >;
+    };
     oauth: {
       createAuthorizationCode: FunctionReference<
         "mutation",
@@ -184,6 +192,32 @@ export declare const api: {
     };
   };
   queries: {
+    chatgpt: {
+      getDailyStatsByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { date: string; discordId: string },
+        any
+      >;
+      getRecentStatsByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string; limit: number },
+        any
+      >;
+      getStatsSummaryByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
+      getUserByOAuthSubject: FunctionReference<
+        "query",
+        "public",
+        { sub: string },
+        any
+      >;
+    };
     oauth: {
       getClientByClientId: FunctionReference<
         "query",
