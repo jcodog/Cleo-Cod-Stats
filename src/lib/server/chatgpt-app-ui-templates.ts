@@ -588,7 +588,15 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
       <footer class="codstats-card codstats-footer">
         <p class="codstats-footer-status" id="matches-next-status">No next page available.</p>
         <p class="codstats-note" id="matches-next-hint">Use codstats_get_match_history to request the next page.</p>
-        <button type="button" class="codstats-btn codstats-btn-secondary is-hidden" id="matches-next-button">Load Next Page</button>
+        <button
+          type="button"
+          class="codstats-btn codstats-btn-secondary is-hidden"
+          id="matches-next-button"
+          data-tool="codstats_get_match_history"
+          data-tool-args='{"limit":15}'
+        >
+          Load Next Page
+        </button>
       </footer>
     </main>`;
     case "rank":
@@ -627,6 +635,35 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
           <strong class="codstats-stat-value" id="rank-sr-to-next">--</strong>
           <p class="codstats-note" id="rank-next-threshold">--</p>
         </article>
+      </section>
+
+      <section class="codstats-card" id="rank-progress-targets">
+        <div class="codstats-card-head">
+          <h2 class="codstats-card-title">Progress Targets</h2>
+          <p class="codstats-card-subtitle">Division and rank climb requirements from ladder boundaries.</p>
+        </div>
+
+        <div class="codstats-progress-stack">
+          <div class="codstats-progress-block">
+            <div class="codstats-progress-head">
+              <span>Next Division</span>
+              <strong id="rank-next-division-needed">--</strong>
+            </div>
+            <div class="codstats-progress-track">
+              <div class="codstats-progress-fill" id="rank-next-division-fill"></div>
+            </div>
+          </div>
+
+          <div class="codstats-progress-block">
+            <div class="codstats-progress-head">
+              <span>Next Rank</span>
+              <strong id="rank-next-rank-needed">--</strong>
+            </div>
+            <div class="codstats-progress-track">
+              <div class="codstats-progress-fill" id="rank-next-rank-fill"></div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>`;
     case "settings":

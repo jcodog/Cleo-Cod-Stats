@@ -98,6 +98,18 @@ function getSrToNextTier(currentSr: number, nextDivision: RankDivision | null) {
   return Math.max(0, nextDivision.minSr - currentSr);
 }
 
+function findNextRankDivision(currentIndex: number, divisions: readonly RankDivision[]) {
+  const currentRank = divisions[currentIndex].rank;
+
+  for (let index = currentIndex + 1; index < divisions.length; index += 1) {
+    if (divisions[index].rank !== currentRank) {
+      return divisions[index];
+    }
+  }
+
+  return null;
+}
+
 function isWithinDivision(currentSr: number, division: RankDivision) {
   if (currentSr < division.minSr) {
     return false;
@@ -141,10 +153,32 @@ export function getCodstatsRankProgress(currentSr: number, ladder: RankLadder): 
 
   const currentIndex = getCurrentDivisionIndex(currentSr, divisions);
   const currentDivision = divisions[currentIndex];
-  const nextDivision = currentIndex < divisions.length - 1 ? divisions[currentIndex + 1] : null;
-  const next = nextDivision ? toProgressTier(nextDivision) : null;
-  const srToNextTier = getSrToNextTier(currentSr, nextDivision);
-  const nextTarget = next && srToNextTier !== null ? { ...next, srNeeded: srToNextTier } : null;
+  const nextDivisionConfig = currentIndex < divisions.length - 1 ? divisions[currentIndex + 1] : null;
+  const nextRankConfig = findNextRankDivision(currentIndex, divisions);
+
+  const next = nextDivisionConfig ? toProgressTier(nextDivisionConfig) : null;
+  const nextDivision = nextDivisionConfig ? toProgressTier(nextDivisionConfig) : null;
+  const nextRank = nextRankConfig ? toProgressTier(nextRankConfig) : null;
+
+  const srToNextTier = getSrToNextTier(currentSr, nextDivisionConfig);
+  const srToNextDivision = getSrToNextTier(currentSr, nextDivisionConfig);
+  const srToNextRank = getSrToNextTier(currentSr, nextRankConfig);
+
+  const nextDivisionTarget =
+    nextDivision && srToNextDivision !== null
+      ? {
+          ...nextDivision,
+          srNeeded: srToNextDivision,
+        }
+      : null;
+
+  const nextRankTarget =
+    nextRank && srToNextRank !== null
+      ? {
+          ...nextRank,
+          srNeeded: srToNextRank,
+        }
+      : null;
 
   return {
     title: ladder.title,
@@ -153,7 +187,7 @@ export function getCodstatsRankProgress(currentSr: number, ladder: RankLadder): 
     current: toProgressTier(currentDivision),
     next,
     srToNextTier,
-    nextDivision: nextTarget,
-    nextRank: nextTarget,
+    nextDivision: nextDivisionTarget,
+    nextRank: nextRankTarget,
   };
 }

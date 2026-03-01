@@ -789,22 +789,23 @@ function hydrateDashboardSession(snapshot: DashboardSnapshot, payload: ContractS
 function hydrateDashboardRank(snapshot: DashboardSnapshot, payload: ContractSuccess) {
   const data = asRecord(payload.data);
   const current = asRecord(data?.current);
-  const next =
+  const nextTier =
     asRecord(data?.next) ??
     asRecord(data?.nextDivision) ??
     asRecord(data?.nextRank);
+  const nextDivision = asRecord(data?.nextDivision) ?? nextTier;
+  const nextRank = asRecord(data?.nextRank) ?? nextDivision;
 
   snapshot.rank.currentRank = buildRankLabel(current);
   snapshot.rank.currentSr = asNumber(data?.currentSr) ?? snapshot.session.srCurrent;
 
-  const nextTargetLabel = buildRankLabel(next);
-  snapshot.rank.nextTierTarget = nextTargetLabel;
-  snapshot.rank.nextDivisionTarget = nextTargetLabel;
-  snapshot.rank.nextRankTarget = nextTargetLabel;
+  snapshot.rank.nextTierTarget = buildRankLabel(nextTier);
+  snapshot.rank.nextDivisionTarget = buildRankLabel(nextDivision);
+  snapshot.rank.nextRankTarget = buildRankLabel(nextRank);
   snapshot.rank.srNeeded =
     asInteger(data?.srToNextTier) ??
-    asInteger(asRecord(data?.nextDivision)?.srNeeded) ??
-    asInteger(asRecord(data?.nextRank)?.srNeeded) ??
+    asInteger(nextDivision?.srNeeded) ??
+    asInteger(nextRank?.srNeeded) ??
     null;
 }
 

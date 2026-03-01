@@ -378,12 +378,12 @@ describe("ChatGPT MCP CodStats app", () => {
               srNeeded: 300,
             },
             nextRank: {
-              rank: "Gold",
-              division: "III",
-              displayName: "Gold III",
-              minSr: 3100,
-              maxSr: 3599,
-              srNeeded: 300,
+              rank: "Platinum",
+              division: "I",
+              displayName: "Platinum I",
+              minSr: 3600,
+              maxSr: 4199,
+              srNeeded: 800,
             },
           }),
         );
@@ -404,12 +404,16 @@ describe("ChatGPT MCP CodStats app", () => {
       expect(result.structuredContent.data.current.displayName).toBe("Gold II");
       expect(result.structuredContent.data.next.displayName).toBe("Gold III");
       expect(result.structuredContent.data.srToNextTier).toBe(300);
+      expect(result.structuredContent.data.nextRank.displayName).toBe("Platinum I");
+      expect(result.structuredContent.data.nextRank.srNeeded).toBe(800);
       expect(result.structuredContent.data.uiOutput.templateUri).toBe(TEST_RANK_URI);
       expect(result.structuredContent.data.uiOutput.templateUrl).toBe(TEST_RANK_URL);
       expect(result._meta.codstats.templateName).toBe("rank");
       expect(result._meta.codstats.viewModel.current.rank).toBe("Gold");
       expect(result._meta.codstats.viewModel.next.displayName).toBe("Gold III");
       expect(result._meta.codstats.viewModel.srToNextTier).toBe(300);
+      expect(result._meta.codstats.viewModel.srToNextDivision).toBe(300);
+      expect(result._meta.codstats.viewModel.srToNextRank).toBe(800);
       expect(typeof result.content?.[0]?.text).toBe("string");
       expect(result.content?.[0]?.text.length).toBeLessThan(80);
     });

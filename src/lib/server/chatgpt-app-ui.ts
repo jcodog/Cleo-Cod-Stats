@@ -379,33 +379,44 @@ function buildRankViewModel(payload: ContractSuccess): RankViewModel {
     asRecord(data.next) ??
     asRecord(data.nextDivision) ??
     asRecord(data.nextRank);
-  const nextMinSr = asOptionalInteger(nextRecord?.minSr);
+  const nextDivisionRecord = asRecord(data.nextDivision) ?? nextRecord;
+  const nextRankRecord = asRecord(data.nextRank);
 
-  const srToNextTier =
-    asOptionalInteger(data.srToNextTier) ??
-    (currentSr !== null && nextMinSr !== null
-      ? Math.max(0, nextMinSr - Math.trunc(currentSr))
-      : null);
+  const nextDivisionMinSr = asOptionalInteger(nextDivisionRecord?.minSr);
+  const nextRankMinSr = asOptionalInteger(nextRankRecord?.minSr);
+
+  const inferredSrToNextDivision =
+    currentSr !== null && nextDivisionMinSr !== null
+      ? Math.max(0, nextDivisionMinSr - Math.trunc(currentSr))
+      : null;
+  const inferredSrToNextRank =
+    currentSr !== null && nextRankMinSr !== null
+      ? Math.max(0, nextRankMinSr - Math.trunc(currentSr))
+      : null;
+
+  const srToNextDivision =
+    asOptionalInteger(data.srToNextDivision) ??
+    asOptionalInteger(nextDivisionRecord?.srNeeded) ??
+    inferredSrToNextDivision;
+  const srToNextRank =
+    asOptionalInteger(data.srToNextRank) ??
+    asOptionalInteger(nextRankRecord?.srNeeded) ??
+    inferredSrToNextRank;
+  const srToNextTier = asOptionalInteger(data.srToNextTier) ?? srToNextDivision;
 
   const next = toRankDivisionViewModel(nextRecord, srToNextTier);
-  const nextDivision = toRankDivisionViewModel(
-    asRecord(data.nextDivision),
-    asOptionalInteger(asRecord(data.nextDivision)?.srNeeded) ?? srToNextTier,
-  ) ?? next;
-  const nextRank = toRankDivisionViewModel(
-    asRecord(data.nextRank),
-    asOptionalInteger(asRecord(data.nextRank)?.srNeeded) ?? srToNextTier,
-  ) ?? next;
+  const nextDivision = toRankDivisionViewModel(nextDivisionRecord, srToNextDivision) ?? next;
+  const nextRank = toRankDivisionViewModel(nextRankRecord, srToNextRank) ?? nextDivision;
 
-  const progressToNextTier =
-    asNumber(data.progressToNextTier) ??
-    computeProgress(currentSr, current?.minSr ?? null, next?.minSr ?? null);
   const progressToNextDivision =
     asNumber(data.progressToNextDivision) ??
-    progressToNextTier;
+    computeProgress(currentSr, current?.minSr ?? null, nextDivision?.minSr ?? null);
   const progressToNextRank =
     asNumber(data.progressToNextRank) ??
-    progressToNextTier;
+    computeProgress(currentSr, current?.minSr ?? null, nextRank?.minSr ?? null);
+  const progressToNextTier =
+    asNumber(data.progressToNextTier) ??
+    progressToNextDivision;
 
   return {
     title: asString(data.title),
@@ -416,8 +427,8 @@ function buildRankViewModel(payload: ContractSuccess): RankViewModel {
     nextDivision,
     nextRank,
     srToNextTier,
-    srToNextDivision: asOptionalInteger(data.srToNextDivision) ?? nextDivision?.srNeeded ?? srToNextTier,
-    srToNextRank: asOptionalInteger(data.srToNextRank) ?? nextRank?.srNeeded ?? srToNextTier,
+    srToNextDivision,
+    srToNextRank,
     progressToNextTier,
     progressToNextDivision,
     progressToNextRank,

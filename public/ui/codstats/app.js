@@ -117,6 +117,24 @@
     return `${NUMBER_FORMAT.format(minSr)}\u2013${NUMBER_FORMAT.format(maxSr)} SR`;
   }
 
+  function computeProgressValue(currentSr, currentMin, targetMin) {
+    const fromSr = toInteger(currentSr);
+    const minSr = toInteger(currentMin);
+    const nextMinSr = toInteger(targetMin);
+
+    if (fromSr === null || minSr === null || nextMinSr === null) {
+      return null;
+    }
+
+    const span = nextMinSr - minSr;
+    if (span <= 0) {
+      return null;
+    }
+
+    const progress = ((fromSr - minSr) / span) * 100;
+    return Math.max(0, Math.min(100, progress));
+  }
+
   function setText(id, value) {
     const node = document.getElementById(id);
     if (!node) {
@@ -259,7 +277,18 @@
           return;
         }
 
-        await callTool(toolName, readToolArgs(button), button);
+        const isMatchesNextButton = button.id === "matches-next-button";
+        if (isMatchesNextButton) {
+          setText("matches-next-status", "Loading next page...");
+          setText("matches-next-hint", "Fetching next page from CodStats...");
+        }
+
+        const result = await callTool(toolName, readToolArgs(button), button);
+
+        if (isMatchesNextButton && (!result || result.isError === true)) {
+          setText("matches-next-status", "Could not load next page.");
+          setText("matches-next-hint", "Try codstats_get_match_history again.");
+        }
       });
     }
   }
@@ -529,6 +558,8 @@
   function renderMatches(viewModel) {
     const listNode = document.getElementById("matches-list");
     const templateNode = document.getElementById("codstats-match-template");
+    const openai = window.openai;
+    const canCallTools = !!(openai && typeof openai.callTool === "function");
     const items = asArray(viewModel.items)
       .map((item) => asObject(item))
       .filter((item) => item !== null)
@@ -616,28 +647,41 @@
 
     const hasMore = toBoolean(viewModel.hasMore);
     const nextCursor = toText(viewModel.nextCursor);
+    const canLoadNextPage = hasMore && !!nextCursor && canCallTools;
 
-    setText("matches-next-status", hasMore ? "More matches are available." : "You are on the final page.");
+    setText(
+      "matches-next-status",
+      canLoadNextPage ? "More matches are available." : "You are on the final page.",
+    );
     setText(
       "matches-next-hint",
-      hasMore
-        ? "Use Load Next Page or call codstats_get_match_history with the returned cursor."
+      canLoadNextPage
+        ? "Use Load Next Page to fetch and render the next set of matches."
         : "Use codstats_get_match_history to refresh this feed.",
     );
 
     const nextButton = document.getElementById("matches-next-button");
     if (nextButton) {
-      nextButton.classList.toggle("is-hidden", !(hasMore && nextCursor));
-      nextButton.dataset.cursor = nextCursor || "";
+      nextButton.classList.toggle("is-hidden", !canLoadNextPage);
+      nextButton.setAttribute(
+        "data-tool-args",
+        JSON.stringify(
+          canLoadNextPage
+            ? { cursor: nextCursor, limit: 15 }
+            : { limit: 15 },
+        ),
+      );
     }
   }
 
   function renderRank(viewModel) {
     const current = asObject(viewModel.current);
-    const next =
-      asObject(viewModel.next) ||
+    const nextDivision =
       asObject(viewModel.nextDivision) ||
-      asObject(viewModel.nextRank);
+      asObject(viewModel.next);
+    const nextRank =
+      asObject(viewModel.nextRank) ||
+      nextDivision;
 
     const currentRank = toText(current && current.rank);
     const currentDivision = toText(current && current.division);
@@ -648,26 +692,67 @@
         : null);
     const currentTierLabel = currentDisplayName || "Unranked";
 
-    const nextRank = toText(next && next.rank);
-    const nextDivision = toText(next && next.division);
-    const nextDisplayName =
-      toText(next && next.displayName) ||
-      (nextRank
-        ? `${nextRank}${nextDivision ? ` ${nextDivision}` : ""}`
+    const nextDivisionRank = toText(nextDivision && nextDivision.rank);
+    const nextDivisionTier = toText(nextDivision && nextDivision.division);
+    const nextDivisionLabel =
+      toText(nextDivision && nextDivision.displayName) ||
+      (nextDivisionRank
+        ? `${nextDivisionRank}${nextDivisionTier ? ` ${nextDivisionTier}` : ""}`
+        : null);
+
+    const nextRankName = toText(nextRank && nextRank.rank);
+    const nextRankTier = toText(nextRank && nextRank.division);
+    const nextRankLabel =
+      toText(nextRank && nextRank.displayName) ||
+      (nextRankName
+        ? `${nextRankName}${nextRankTier ? ` ${nextRankTier}` : ""}`
         : null);
 
     const currentSr = toInteger(viewModel.currentSr);
-    const srToNext =
-      toInteger(viewModel.srToNextTier) ??
+    const currentMinSr = toInteger(current && current.minSr);
+    const nextDivisionMinSr = toInteger(nextDivision && nextDivision.minSr);
+    const nextRankMinSr = toInteger(nextRank && nextRank.minSr);
+
+    const srToNextDivision =
       toInteger(viewModel.srToNextDivision) ??
-      toInteger(viewModel.srToNextRank);
+      toInteger(nextDivision && nextDivision.srNeeded) ??
+      (currentSr !== null && nextDivisionMinSr !== null
+        ? Math.max(0, nextDivisionMinSr - currentSr)
+        : null);
 
-    const progressToNext =
-      toNumber(viewModel.progressToNextTier) ??
+    const srToNextRank =
+      toInteger(viewModel.srToNextRank) ??
+      toInteger(nextRank && nextRank.srNeeded) ??
+      (currentSr !== null && nextRankMinSr !== null
+        ? Math.max(0, nextRankMinSr - currentSr)
+        : null);
+
+    const srToNextTier =
+      toInteger(viewModel.srToNextTier) ??
+      srToNextDivision;
+
+    const progressToNextDivision =
       toNumber(viewModel.progressToNextDivision) ??
-      toNumber(viewModel.progressToNextRank);
+      computeProgressValue(currentSr, currentMinSr, nextDivisionMinSr);
 
-    const nextMinSr = toInteger(next && next.minSr);
+    const progressToNextRank =
+      toNumber(viewModel.progressToNextRank) ??
+      computeProgressValue(currentSr, currentMinSr, nextRankMinSr);
+
+    const progressToNextTier =
+      toNumber(viewModel.progressToNextTier) ??
+      progressToNextDivision;
+
+    const nextThresholdText =
+      nextRankLabel &&
+      nextDivisionLabel &&
+      nextRankLabel !== nextDivisionLabel &&
+      nextRankMinSr !== null &&
+      nextDivisionMinSr !== null
+        ? `Division at ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR · Rank at ${NUMBER_FORMAT.format(nextRankMinSr)} SR`
+        : nextDivisionMinSr === null
+          ? ""
+          : `Reach ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR`;
 
     setText("rank-title", toText(viewModel.title) || "Rank Progress");
     setText(
@@ -678,51 +763,48 @@
     setText("rank-current-division", currentTierLabel);
     setText("rank-current-range", formatRange(current));
     setText("rank-current-sr", formatInteger(currentSr));
-    setProgress("rank-tier-progress-fill", progressToNext);
+    setProgress("rank-tier-progress-fill", progressToNextTier);
     setText(
       "rank-tier-progress-label",
-      progressToNext === null
+      progressToNextDivision === null
         ? "Progress unavailable"
-        : `${Math.round(progressToNext)}% through this division`,
+        : `${Math.round(progressToNextDivision)}% through this division`,
     );
 
     setText(
       "rank-next-division-needed",
-      srToNext === null
+      srToNextDivision === null
         ? "--"
-        : `${NUMBER_FORMAT.format(srToNext)} SR`,
+        : `${NUMBER_FORMAT.format(srToNextDivision)} SR`,
     );
     setText(
       "rank-next-rank-needed",
-      srToNext === null
+      srToNextRank === null
         ? "--"
-        : `${NUMBER_FORMAT.format(srToNext)} SR`,
+        : `${NUMBER_FORMAT.format(srToNextRank)} SR`,
     );
-    setProgress("rank-next-division-fill", progressToNext);
-    setProgress("rank-next-rank-fill", progressToNext);
+    setProgress("rank-next-division-fill", progressToNextDivision);
+    setProgress("rank-next-rank-fill", progressToNextRank);
 
-    if (nextDisplayName) {
+    if (nextDivisionLabel) {
       setHidden("rank-next-tier-section", false);
       setHidden("rank-next-sr-section", false);
-      setText("rank-next-tier", nextDisplayName);
-      setText("rank-next-range", formatRange(next));
+      setHidden("rank-progress-targets", false);
+      setText("rank-next-tier", nextDivisionLabel);
+      setText("rank-next-range", formatRange(nextDivision));
       setText(
         "rank-sr-to-next",
-        srToNext === null
+        srToNextTier === null
           ? "--"
-          : `${NUMBER_FORMAT.format(srToNext)} SR`,
+          : `${NUMBER_FORMAT.format(srToNextTier)} SR`,
       );
-      setText(
-        "rank-next-threshold",
-        nextMinSr === null
-          ? ""
-          : `Reach ${NUMBER_FORMAT.format(nextMinSr)} SR`,
-      );
+      setText("rank-next-threshold", nextThresholdText);
       return;
     }
 
     setHidden("rank-next-tier-section", true);
     setHidden("rank-next-sr-section", true);
+    setHidden("rank-progress-targets", true);
     setText("rank-next-tier", "--");
     setText("rank-next-range", "--");
     setText("rank-sr-to-next", "--");
@@ -760,23 +842,6 @@
     }
 
     resetDisconnectState();
-  }
-
-  function bindMatchesNextButton() {
-    const nextButton = document.getElementById("matches-next-button");
-    if (!nextButton || nextButton.__codstatsBound === true) {
-      return;
-    }
-
-    nextButton.__codstatsBound = true;
-    nextButton.addEventListener("click", async () => {
-      const cursor = toText(nextButton.dataset.cursor);
-      if (!cursor) {
-        return;
-      }
-
-      await callTool("codstats_get_match_history", { cursor, limit: 15 }, nextButton);
-    });
   }
 
   function bindSettingsDisconnectButtons() {
@@ -842,7 +907,6 @@
     }
 
     bindGenericToolButtons();
-    bindMatchesNextButton();
     bindSettingsDisconnectButtons();
 
     const openai = window.openai;

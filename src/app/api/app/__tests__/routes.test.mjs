@@ -487,12 +487,12 @@ describe("/api/app/stats/rank/progress", () => {
       srNeeded: 300,
     });
     expect(body.data.nextRank).toEqual({
-      rank: "Gold",
-      division: "III",
-      displayName: "Gold III",
-      minSr: 3100,
-      maxSr: 3599,
-      srNeeded: 300,
+      rank: "Platinum",
+      division: "I",
+      displayName: "Platinum I",
+      minSr: 3600,
+      maxSr: 4199,
+      srNeeded: 800,
     });
   });
 
