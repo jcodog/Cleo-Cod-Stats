@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   getAppPublicOrigin,
   getCodstatsTemplateResourceUri,
@@ -35,23 +37,446 @@ const CODSTATS_TEMPLATES: Record<CodstatsTemplateName, CodstatsTemplateRecord> =
   },
 };
 
-const CODSTATS_TEMPLATE_CSP_HEADER = [
+const CODSTATS_WIDGET_INLINE_CSS = `
+:root {
+  --cs-bg: #05070b;
+  --cs-bg-2: #0a1017;
+  --cs-surface: #101722;
+  --cs-border: rgba(123, 150, 182, 0.26);
+  --cs-text: #ecf4ff;
+  --cs-muted: #95a8c1;
+  --cs-accent: #26d9a6;
+  --cs-accent-soft: rgba(38, 217, 166, 0.2);
+  --cs-accent-shadow: rgba(38, 217, 166, 0.28);
+  --cs-win: #34d399;
+  --cs-loss: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(38, 217, 166, 0.2), rgba(38, 217, 166, 0) 42%),
+    radial-gradient(circle at 85% -20%, rgba(73, 123, 194, 0.3), rgba(73, 123, 194, 0) 38%),
+    linear-gradient(180deg, var(--cs-bg), var(--cs-bg-2));
+  color: var(--cs-text);
+  font-family: "Bahnschrift", "Rajdhani", "Trebuchet MS", sans-serif;
+  line-height: 1.35;
+}
+
+.codstats-shell {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: clamp(10px, 2vw, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.codstats-widget-shell {
+  width: min(720px, 100%);
+}
+
+.codstats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.codstats-widget-header {
+  align-items: center;
+}
+
+.codstats-eyebrow {
+  margin: 0;
+  color: var(--cs-accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.codstats-title {
+  margin: 4px 0 2px;
+  font-size: clamp(18px, 2.8vw, 24px);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.codstats-widget-title {
+  font-size: clamp(18px, 2.8vw, 23px);
+}
+
+.codstats-subtitle {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+.codstats-widget-header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-pill {
+  align-self: center;
+  border-radius: 999px;
+  border: 1px solid var(--cs-border);
+  background: rgba(13, 20, 31, 0.84);
+  color: var(--cs-text);
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.codstats-pill-accent {
+  border-color: rgba(38, 217, 166, 0.6);
+  background: var(--cs-accent-soft);
+  color: #d6fff1;
+  box-shadow: 0 0 0 1px rgba(38, 217, 166, 0.25), 0 6px 20px var(--cs-accent-shadow);
+}
+
+.codstats-card {
+  border-radius: 12px;
+  border: 1px solid var(--cs-border);
+  background: linear-gradient(180deg, rgba(18, 26, 39, 0.95), rgba(15, 22, 33, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px rgba(0, 0, 0, 0.32);
+  padding: 10px;
+}
+
+.codstats-widget-card {
+  border-color: rgba(130, 156, 188, 0.28);
+}
+
+.codstats-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.codstats-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.codstats-card-subtitle {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+.codstats-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.codstats-widget-metric-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.codstats-widget-metric {
+  margin: 0;
+  border: 1px solid rgba(127, 153, 185, 0.24);
+  border-radius: 9px;
+  background: rgba(12, 19, 30, 0.92);
+  padding: 7px;
+  min-height: 58px;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+}
+
+.codstats-widget-metric-wide {
+  grid-column: span 3;
+}
+
+.codstats-widget-metric dt,
+.codstats-widget-metric-row dt {
+  color: var(--cs-muted);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.codstats-widget-metric dd {
+  margin: 0;
+  color: #f6fbff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.codstats-widget-metric-stack {
+  margin: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.codstats-widget-metric-row {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(127, 153, 185, 0.22);
+  background: rgba(12, 19, 30, 0.88);
+}
+
+.codstats-widget-metric-row dd {
+  margin: 0;
+  color: #f6fbff;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.codstats-widget-match-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.codstats-widget-match-row {
+  border-radius: 10px;
+  border: 1px solid rgba(125, 151, 186, 0.25);
+  background: rgba(12, 19, 30, 0.9);
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(66px, 1fr) minmax(52px, 1fr) minmax(84px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-widget-match-main {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f4fbff;
+  letter-spacing: 0.01em;
+}
+
+.codstats-widget-match-sr {
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.codstats-widget-match-kd,
+.codstats-widget-match-time {
+  font-size: 11px;
+  color: var(--cs-muted);
+  text-align: right;
+}
+
+.codstats-widget-connection-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.codstats-empty-text,
+.codstats-note {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+#widget-actions-hint {
+  margin-top: 6px;
+}
+
+.codstats-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-actions-wrap {
+  flex-wrap: wrap;
+}
+
+.codstats-btn {
+  border: 1px solid rgba(38, 217, 166, 0.6);
+  background: linear-gradient(180deg, rgba(38, 217, 166, 0.26), rgba(16, 107, 83, 0.22));
+  color: #dcfff3;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.codstats-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(23, 154, 119, 0.28);
+}
+
+.codstats-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.codstats-btn-secondary {
+  border-color: rgba(129, 152, 179, 0.5);
+  background: rgba(24, 33, 46, 0.85);
+  color: #dde9f8;
+}
+
+.codstats-btn-danger {
+  border-color: rgba(239, 68, 68, 0.62);
+  background: rgba(127, 29, 29, 0.34);
+  color: #ffdede;
+}
+
+#widget-disconnect-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.codstats-positive {
+  color: var(--cs-win);
+}
+
+.codstats-negative {
+  color: var(--cs-loss);
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .codstats-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .codstats-pill {
+    align-self: flex-start;
+  }
+
+  .codstats-widget-header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .codstats-widget-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  .codstats-shell {
+    padding: 10px;
+    gap: 9px;
+  }
+
+  .codstats-widget-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codstats-widget-metric-wide {
+    grid-column: span 2;
+  }
+
+  .codstats-widget-match-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codstats-widget-match-sr,
+  .codstats-widget-match-kd,
+  .codstats-widget-match-time {
+    text-align: left;
+  }
+
+  .codstats-actions-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .codstats-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .codstats-title,
+  .codstats-widget-title {
+    font-size: 18px;
+  }
+
+  .codstats-widget-metric dd {
+    font-size: 14px;
+  }
+}
+`;
+
+const CODSTATS_WIDGET_INLINE_STYLE_HASH = createHash("sha256")
+  .update(CODSTATS_WIDGET_INLINE_CSS)
+  .digest("base64");
+
+const CODSTATS_TEMPLATE_BASE_CSP_DIRECTIVES = [
   "default-src 'none'",
-  "frame-ancestors https://chatgpt.com https://chat.openai.com",
+  "frame-ancestors https://chatgpt.com https://chat.openai.com https://*.openai.com",
   "connect-src 'self'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "style-src 'self'",
   "script-src 'self'",
   "media-src 'self'",
   "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
-].join("; ");
+] as const;
 
 function getCodstatsAssetUrl(assetPath: string, requestOriginInput?: RequestOriginInput) {
   return `${getAppPublicOrigin(requestOriginInput)}${assetPath}`;
+}
+
+function renderTemplateStylesheetTag(
+  templateName: CodstatsTemplateName,
+  requestOriginInput?: RequestOriginInput,
+) {
+  if (templateName === "widget") {
+    return `<style>${CODSTATS_WIDGET_INLINE_CSS}</style>`;
+  }
+
+  const stylesheetUrl = getCodstatsAssetUrl("/ui/codstats/styles.css", requestOriginInput);
+  return `<link rel="stylesheet" href="${stylesheetUrl}" />`;
+}
+
+function getTemplateStyleSourceDirective(templateName: CodstatsTemplateName) {
+  if (templateName === "widget") {
+    return `style-src 'self' 'sha256-${CODSTATS_WIDGET_INLINE_STYLE_HASH}'`;
+  }
+
+  return "style-src 'self'";
 }
 
 function renderTemplateBody(templateName: CodstatsTemplateName) {
@@ -439,7 +864,6 @@ export function renderCodstatsTemplateHtml(
   requestOriginInput?: RequestOriginInput,
 ) {
   const hostedTemplateUrl = getCodstatsTemplateUrl(templateName, requestOriginInput);
-  const stylesheetUrl = getCodstatsAssetUrl("/ui/codstats/styles.css", requestOriginInput);
   const scriptUrl = getCodstatsAssetUrl("/ui/codstats/app.js", requestOriginInput);
   const { title } = CODSTATS_TEMPLATES[templateName];
 
@@ -451,7 +875,7 @@ export function renderCodstatsTemplateHtml(
     <meta name="color-scheme" content="dark" />
     <title>${title}</title>
     <link rel="canonical" href="${hostedTemplateUrl}" />
-    <link rel="stylesheet" href="${stylesheetUrl}" />
+    ${renderTemplateStylesheetTag(templateName, requestOriginInput)}
     <script src="${scriptUrl}" defer></script>
   </head>
   <body>
@@ -460,8 +884,10 @@ export function renderCodstatsTemplateHtml(
 </html>`;
 }
 
-export function getCodstatsTemplateCspHeader() {
-  return CODSTATS_TEMPLATE_CSP_HEADER;
+export function getCodstatsTemplateCspHeader(templateName: CodstatsTemplateName) {
+  return [...CODSTATS_TEMPLATE_BASE_CSP_DIRECTIVES, getTemplateStyleSourceDirective(templateName)].join(
+    "; ",
+  );
 }
 
 export function getCodstatsTemplateCatalog(requestOriginInput?: RequestOriginInput) {
@@ -512,7 +938,7 @@ export function createCodstatsTemplateHtmlResponse(
     headers: {
       "Cache-Control": "no-store",
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Security-Policy": getCodstatsTemplateCspHeader(),
+      "Content-Security-Policy": getCodstatsTemplateCspHeader(templateName),
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },

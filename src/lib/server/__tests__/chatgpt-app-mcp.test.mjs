@@ -576,9 +576,11 @@ describe("ChatGPT MCP CodStats app", () => {
     const response = await getWidgetTemplateRoute();
     const html = await response.text();
     const csp = response.headers.get("content-security-policy") ?? "";
+    const xFrameOptions = response.headers.get("x-frame-options");
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("content-type")).toContain("text/html; charset=utf-8");
+    expect(xFrameOptions).toBeNull();
     expect(html).toContain('data-widget-section="current-session"');
     expect(html).toContain('data-widget-section="rank-progress"');
     expect(html).toContain('data-widget-section="recent-matches"');
@@ -588,7 +590,9 @@ describe("ChatGPT MCP CodStats app", () => {
     expect(html).toContain('id="widget-matches-list"');
     expect(html).toContain('id="widget-connection-status"');
     expect(csp).toContain("default-src 'none'");
-    expect(csp).toContain("frame-ancestors https://chatgpt.com https://chat.openai.com");
+    expect(csp).toContain("frame-ancestors");
+    expect(csp).toContain("https://chat.openai.com");
+    expect(csp).toContain("https://*.openai.com");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'none'");
     expect(csp).toContain("form-action 'none'");
@@ -600,7 +604,14 @@ describe("ChatGPT MCP CodStats app", () => {
     for (const templateName of templates) {
       const html = renderCodstatsTemplateHtml(templateName, TEST_APP_PUBLIC_ORIGIN);
       expect(html).toContain("codstats-shell");
-      expect(html).toContain("/ui/codstats/styles.css");
+
+      if (templateName === "widget") {
+        expect(html).toContain("<style>");
+        expect(html).not.toContain("/ui/codstats/styles.css");
+      } else {
+        expect(html).toContain("/ui/codstats/styles.css");
+      }
+
       expect(html).toContain("/ui/codstats/app.js");
       expect(html).toMatchSnapshot(`${templateName}-template`);
     }
