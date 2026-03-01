@@ -265,27 +265,27 @@ describe("ChatGPT MCP CodStats app", () => {
             title: "COD Ranked Skill Divisions",
             ruleset: "sr-based-v1",
             currentSr: 3350,
-            current: { rank: "Platinum", division: "I", minSr: 3300, maxSr: 3599 },
+            current: { rank: "Gold", division: "III", minSr: 3100, maxSr: 3599 },
             nextDivision: {
               rank: "Platinum",
-              division: "II",
+              division: "I",
               minSr: 3600,
-              maxSr: 3899,
+              maxSr: 4199,
               srNeeded: 250,
             },
             nextRank: {
-              rank: "Diamond",
+              rank: "Platinum",
               division: "I",
-              minSr: 4200,
-              maxSr: 4499,
-              srNeeded: 850,
+              minSr: 3600,
+              maxSr: 4199,
+              srNeeded: 250,
             },
             prevDivision: {
               rank: "Gold",
-              division: "III",
-              minSr: 3000,
-              maxSr: 3299,
-              srBack: 51,
+              division: "II",
+              minSr: 2600,
+              maxSr: 3099,
+              srBack: 251,
             },
           }),
         );
@@ -302,10 +302,10 @@ describe("ChatGPT MCP CodStats app", () => {
 
       expect(result.isError).not.toBe(true);
       expectContractShape(result.structuredContent, CHATGPT_APP_VIEWS.rankProgress);
-      expect(result.structuredContent.data.current.rank).toBe("Platinum");
+      expect(result.structuredContent.data.current.rank).toBe("Gold");
       expect(result.structuredContent.data.nextDivision.srNeeded).toBe(250);
-      expect(result.structuredContent.data.nextRank.srNeeded).toBe(850);
-      expect(result.structuredContent.data.prevDivision.srBack).toBe(51);
+      expect(result.structuredContent.data.nextRank.srNeeded).toBe(250);
+      expect(result.structuredContent.data.prevDivision.srBack).toBe(251);
     });
   });
 

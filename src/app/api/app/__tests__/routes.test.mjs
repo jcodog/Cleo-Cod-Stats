@@ -443,17 +443,20 @@ describe("/api/app/stats/rank/progress", () => {
     expect(response.status).toBe(200);
     expectContractSuccess(body, CHATGPT_APP_VIEWS.rankProgress);
     expect(body.data.currentSr).toBe(3350);
-    expect(body.data.current.rank).toBe("Platinum");
-    expect(body.data.current.division).toBe("I");
+    expect(body.data.current.rank).toBe("Gold");
+    expect(body.data.current.division).toBe("III");
     expect(body.data.nextDivision.rank).toBe("Platinum");
-    expect(body.data.nextDivision.division).toBe("II");
+    expect(body.data.nextDivision.division).toBe("I");
     expect(body.data.nextDivision.srNeeded).toBe(250);
-    expect(body.data.nextRank.rank).toBe("Diamond");
+    expect(body.data.nextRank.rank).toBe("Platinum");
     expect(body.data.nextRank.division).toBe("I");
-    expect(body.data.nextRank.srNeeded).toBe(850);
+    expect(body.data.nextRank.srNeeded).toBe(250);
     expect(body.data.prevDivision.rank).toBe("Gold");
-    expect(body.data.prevDivision.division).toBe("III");
-    expect(body.data.prevDivision.srBack).toBe(51);
+    expect(body.data.prevDivision.division).toBe("II");
+    expect(body.data.prevDivision.srBack).toBe(251);
+    expect(body.data.prevRank.rank).toBe("Silver");
+    expect(body.data.prevRank.division).toBe("III");
+    expect(body.data.prevRank.srBack).toBe(1251);
   });
 });
 

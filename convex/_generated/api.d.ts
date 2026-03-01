@@ -200,10 +200,44 @@ export declare const api: {
   };
   queries: {
     chatgpt: {
+      getActiveSessionByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
       getDailyStatsByDiscordId: FunctionReference<
         "query",
         "public",
         { date: string; discordId: string },
+        any
+      >;
+      getLastCompletedSessionByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
+      getMatchById: FunctionReference<
+        "query",
+        "public",
+        { discordId: string; matchId: string },
+        any
+      >;
+      getMatchesByDiscordIdPaginated: FunctionReference<
+        "query",
+        "public",
+        {
+          discordId: string;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+        },
         any
       >;
       getRecentStatsByDiscordId: FunctionReference<

@@ -32,31 +32,54 @@ export type RankProgress = {
 };
 
 const LADDER_UPDATED_AT = Date.UTC(2026, 1, 1);
+const OPEN_ENDED_MAX_SR = Number.MAX_SAFE_INTEGER;
+
+type DivisionTierInfo = {
+  minSr: number;
+  rank: string;
+  division?: string;
+};
+
+const DIVISION_TIER_MIN_SR_CONFIG: readonly DivisionTierInfo[] = [
+  { minSr: 0, rank: "Bronze", division: "I" },
+  { minSr: 300, rank: "Bronze", division: "II" },
+  { minSr: 600, rank: "Bronze", division: "III" },
+  { minSr: 900, rank: "Silver", division: "I" },
+  { minSr: 1300, rank: "Silver", division: "II" },
+  { minSr: 1700, rank: "Silver", division: "III" },
+  { minSr: 2100, rank: "Gold", division: "I" },
+  { minSr: 2600, rank: "Gold", division: "II" },
+  { minSr: 3100, rank: "Gold", division: "III" },
+  { minSr: 3600, rank: "Platinum", division: "I" },
+  { minSr: 4200, rank: "Platinum", division: "II" },
+  { minSr: 4800, rank: "Platinum", division: "III" },
+  { minSr: 5400, rank: "Diamond", division: "I" },
+  { minSr: 6100, rank: "Diamond", division: "II" },
+  { minSr: 6800, rank: "Diamond", division: "III" },
+  { minSr: 7500, rank: "Crimson", division: "I" },
+  { minSr: 8300, rank: "Crimson", division: "II" },
+  { minSr: 9100, rank: "Crimson", division: "III" },
+  { minSr: 10000, rank: "Iridescent" },
+];
+
+function buildRankDivisionsFromMinSr(config: readonly DivisionTierInfo[]): RankDivision[] {
+  return config.map((entry, index) => {
+    const nextEntry = config[index + 1];
+    const maxSr = nextEntry ? nextEntry.minSr - 1 : OPEN_ENDED_MAX_SR;
+
+    return {
+      rank: entry.rank,
+      division: entry.division,
+      minSr: entry.minSr,
+      maxSr,
+    };
+  });
+}
 
 const RANK_LADDER_CONFIG: Omit<RankLadder, "updatedAt"> = {
   title: "COD Ranked Skill Divisions",
   ruleset: "sr-based-v1",
-  divisions: [
-    { rank: "Bronze", division: "I", minSr: 0, maxSr: 899 },
-    { rank: "Bronze", division: "II", minSr: 900, maxSr: 1199 },
-    { rank: "Bronze", division: "III", minSr: 1200, maxSr: 1499 },
-    { rank: "Silver", division: "I", minSr: 1500, maxSr: 1799 },
-    { rank: "Silver", division: "II", minSr: 1800, maxSr: 2099 },
-    { rank: "Silver", division: "III", minSr: 2100, maxSr: 2399 },
-    { rank: "Gold", division: "I", minSr: 2400, maxSr: 2699 },
-    { rank: "Gold", division: "II", minSr: 2700, maxSr: 2999 },
-    { rank: "Gold", division: "III", minSr: 3000, maxSr: 3299 },
-    { rank: "Platinum", division: "I", minSr: 3300, maxSr: 3599 },
-    { rank: "Platinum", division: "II", minSr: 3600, maxSr: 3899 },
-    { rank: "Platinum", division: "III", minSr: 3900, maxSr: 4199 },
-    { rank: "Diamond", division: "I", minSr: 4200, maxSr: 4499 },
-    { rank: "Diamond", division: "II", minSr: 4500, maxSr: 4799 },
-    { rank: "Diamond", division: "III", minSr: 4800, maxSr: 5099 },
-    { rank: "Crimson", division: "I", minSr: 5100, maxSr: 5399 },
-    { rank: "Crimson", division: "II", minSr: 5400, maxSr: 5699 },
-    { rank: "Crimson", division: "III", minSr: 5700, maxSr: 5999 },
-    { rank: "Iridescent", minSr: 6000, maxSr: 9999 },
-  ],
+  divisions: buildRankDivisionsFromMinSr(DIVISION_TIER_MIN_SR_CONFIG),
 };
 
 function cloneDivision(division: RankDivision): RankDivision {
