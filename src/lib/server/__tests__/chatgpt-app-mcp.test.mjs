@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createChatGptAppMcpServer } from "../chatgpt-app-mcp.ts";
+import { GET as getMcpRoute } from "../../../app/mcp/route.ts";
 
 const TEST_ORIGIN = "https://codstats.test";
 
@@ -314,5 +315,12 @@ describe("ChatGPT MCP CodStats app", () => {
       expect(approved.structuredContent.disconnected).toBe(true);
       expect(disconnectCallCount).toBe(1);
     });
+  });
+
+  it("serves /mcp without HTML login pages", async () => {
+    const response = await getMcpRoute(new Request(`${TEST_ORIGIN}/mcp`));
+    const contentType = response.headers.get("content-type") ?? "";
+
+    expect(contentType).not.toContain("text/html");
   });
 });

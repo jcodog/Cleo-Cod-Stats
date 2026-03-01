@@ -1,19 +1,26 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const isPublicRoute = createRouteMatcher([
+// ChatGPT App endpoints must not require Clerk session.
+export const CHATGPT_APP_PUBLIC_ROUTE_PATTERNS = [
+  "/mcp(.*)",
+  "/.well-known/oauth-authorization-server(.*)",
+  "/.well-known/oauth-protected-resource(.*)",
+  "/oauth/authorize(.*)",
+  "/oauth/token(.*)",
+  "/oauth/revoke(.*)",
+  "/oauth/register(.*)",
+  "/api/app(.*)",
+];
+
+export const PUBLIC_ROUTE_PATTERNS = [
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/landing-metrics",
-  "/oauth/authorize(.*)",
-  "/oauth/register",
-  "/oauth/token",
-  "/oauth/revoke",
-  "/.well-known/oauth-authorization-server",
-  "/.well-known/oauth-protected-resource",
-  "/mcp(.*)",
-  "/api/app(.*)",
-]);
+  ...CHATGPT_APP_PUBLIC_ROUTE_PATTERNS,
+];
+
+export const isPublicRoute = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {

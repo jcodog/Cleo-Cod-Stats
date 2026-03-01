@@ -23,6 +23,16 @@ export const dynamic = "force-dynamic";
 
 const PKCE_CODE_CHALLENGE_PATTERN = /^[A-Za-z0-9_-]{43,128}$/;
 
+type AuthorizeRouteDeps = {
+  getAuth: typeof auth;
+  runMutation: typeof fetchMutation;
+};
+
+const defaultDeps: AuthorizeRouteDeps = {
+  getAuth: auth,
+  runMutation: fetchMutation,
+};
+
 function authorizeError(
   redirectUri: string | null,
   state: string | null,
@@ -45,7 +55,10 @@ function authorizeError(
   return authorizeRedirectResponse(redirectUri, params);
 }
 
-export async function GET(request: Request) {
+export async function handleAuthorizeGet(
+  request: Request,
+  deps: AuthorizeRouteDeps = defaultDeps,
+) {
   const requestUrl = new URL(request.url);
 
   let config;
@@ -239,10 +252,17 @@ export async function GET(request: Request) {
 
   codeChallengeMethod = "S256";
 
-  const { userId, sessionId, redirectToSignIn, getToken } = await auth();
+  const { userId, sessionId, getToken } = await deps.getAuth();
   if (!userId || !sessionId) {
-    return redirectToSignIn({ returnBackUrl: request.url });
+    return authorizeError(
+      redirectUri,
+      state,
+      "invalid_request",
+      "User must be signed in before approving this OAuth client",
+    );
   }
+
+  // ChatGPT App endpoints must not require Clerk session.
 
   const convexToken = await getToken({ template: "convex" });
   if (!convexToken) {
@@ -260,7 +280,7 @@ export async function GET(request: Request) {
   const stateHash = sha256Base64Url(state);
 
   try {
-    await fetchMutation(
+    await deps.runMutation(
       api.mutations.oauth.createAuthorizationCode,
       {
         clientId,
@@ -290,4 +310,8 @@ export async function GET(request: Request) {
     code: authorizationCode,
     state,
   });
+}
+
+export async function GET(request: Request) {
+  return handleAuthorizeGet(request);
 }

@@ -176,6 +176,20 @@ The Apps SDK verifier requires UI resource metadata on `ui://codstats/widget.htm
 
 Set `OAUTH_ISSUER` to your canonical app URL for verification (for example `https://stats-dev.cleoai.cloud` or `https://stats.cleoai.cloud`). This metadata is required by ext-apps UI resource validation.
 
+### Public endpoint checks
+
+ChatGPT App endpoints must stay publicly reachable (no Clerk sign-in redirect and no HTML login page).
+
+- `/api/app/*` routes are protected by OAuth bearer token validation (WWW-Authenticate), not Clerk session middleware.
+
+```bash
+curl -i https://<domain>/.well-known/oauth-authorization-server
+curl -i https://<domain>/.well-known/oauth-protected-resource
+curl -i https://<domain>/mcp
+```
+
+Each response should be JSON (or MCP protocol output), not `text/html`.
+
 ### Run locally
 
 1. Start your app with `npm run dev`.
@@ -201,6 +215,8 @@ Set `OAUTH_ISSUER` to your canonical app URL for verification (for example `http
   - `npm run test:app`
 - Run API route tests only:
   - `npm run test:app:api`
+- Run OAuth endpoint tests only:
+  - `npm run test:app:oauth`
 - Run MCP server/tool tests only:
   - `npm run test:app:mcp`
 

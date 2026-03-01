@@ -5,6 +5,8 @@ import { handleProfileGet } from "../profile/route.ts";
 import { handleDailyGet } from "../stats/daily/route.ts";
 import { handleRecentGet } from "../stats/recent/route.ts";
 import { handleSummaryGet } from "../stats/summary/route.ts";
+import { requireAuthenticatedAppRequest } from "../../../../lib/server/chatgpt-app-auth.ts";
+import { isPublicRoute } from "../../../../proxy.ts";
 
 const ACTIVE_USER = {
   _id: "user_test_123",
@@ -31,6 +33,14 @@ const VERIFIED_TOKEN = {
 
 function createRequest(url) {
   return new Request(url);
+}
+
+function createProxyMatcherRequest(pathname) {
+  return {
+    nextUrl: {
+      pathname,
+    },
+  };
 }
 
 function jsonResponse(status, payload) {
@@ -62,6 +72,54 @@ function createAuthSuccess(scopes = ["stats.read"]) {
     },
   };
 }
+
+describe("proxy public route allowlist", () => {
+  it("bypasses Clerk auth for all ChatGPT App endpoints", () => {
+    const publicPaths = [
+      "/mcp",
+      "/.well-known/oauth-authorization-server",
+      "/.well-known/oauth-protected-resource",
+      "/oauth/authorize",
+      "/oauth/token",
+      "/oauth/revoke",
+      "/oauth/register",
+      "/api/app/profile",
+      "/api/app/stats/summary",
+    ];
+
+    for (const path of publicPaths) {
+      expect(isPublicRoute(createProxyMatcherRequest(path))).toBe(true);
+    }
+  });
+
+  it("still protects non-allowlisted routes", () => {
+    expect(isPublicRoute(createProxyMatcherRequest("/dashboard"))).toBe(false);
+  });
+});
+
+describe("Bearer auth guard", () => {
+  it("returns OAuth bearer challenge when token is missing", async () => {
+    const result = await requireAuthenticatedAppRequest(
+      createRequest("https://example.test/api/app/profile"),
+      ["profile.read"],
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+
+    const body = await result.response.json();
+
+    expect(result.response.status).toBe(401);
+    expect(body.error).toBe("invalid_token");
+    expect(body.error_description).toBe("Missing bearer token");
+    expect(result.response.headers.get("www-authenticate")).toContain("Bearer");
+    expect(result.response.headers.get("www-authenticate")).toContain(
+      ".well-known/oauth-protected-resource",
+    );
+  });
+});
 
 describe("/api/app/profile", () => {
   it("returns 401 when auth fails", async () => {

@@ -92,6 +92,7 @@ export async function requireAuthenticatedAppRequest(
   request: Request,
   requiredScopes: RequiredAppScopes,
 ): Promise<AuthenticatedAppRequestResult> {
+  // ChatGPT App endpoints must not require Clerk session.
   const token = extractBearerToken(request);
   if (!token) {
     return {
