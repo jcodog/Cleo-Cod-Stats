@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@clerk/nextjs": "^6.38.3",
-    "@clerk/themes": "^2.4.56",
+    "@clerk/nextjs": "^6.39.0",
+    "@clerk/themes": "^2.4.57",
     "@modelcontextprotocol/ext-apps": "^1.1.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@tabler/icons-react": "^3.37.1",
@@ -44,10 +44,10 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
-    "@types/node": "^25.3.2",
+    "@types/node": "^25.3.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript/native-preview": "^7.0.0-dev.20260227.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260301.1",
     "eslint": "^10.0.2",
     "eslint-config-next": "16.1.6",
     "mprocs": "^0.8.3",
