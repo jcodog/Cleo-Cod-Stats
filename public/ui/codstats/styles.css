@@ -425,6 +425,10 @@ body {
   overflow: hidden;
 }
 
+.codstats-rank-progress-track {
+  margin-top: 8px;
+}
+
 .codstats-progress-fill {
   width: 0;
   height: 100%;

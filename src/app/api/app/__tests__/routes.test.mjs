@@ -460,6 +460,9 @@ describe("/api/app/stats/rank/progress", () => {
   it("returns Gold II range and Gold III as next tier for SR 2800", async () => {
     const body = await getRankProgressResponse(2800);
 
+    expect(body.data.title).toBe("COD Ranked Skill Divisions");
+    expect(body.data.ruleset).toBe("sr-based-v1");
+    expect(body.data.currentSr).toBe(2800);
     expect(body.data.current).toEqual({
       rank: "Gold",
       division: "II",
@@ -474,8 +477,23 @@ describe("/api/app/stats/rank/progress", () => {
       minSr: 3100,
       maxSr: 3599,
     });
-    expect(body.data.nextDivision).toBeUndefined();
-    expect(body.data.nextRank).toBeUndefined();
+    expect(body.data.srToNextTier).toBe(300);
+    expect(body.data.nextDivision).toEqual({
+      rank: "Gold",
+      division: "III",
+      displayName: "Gold III",
+      minSr: 3100,
+      maxSr: 3599,
+      srNeeded: 300,
+    });
+    expect(body.data.nextRank).toEqual({
+      rank: "Gold",
+      division: "III",
+      displayName: "Gold III",
+      minSr: 3100,
+      maxSr: 3599,
+      srNeeded: 300,
+    });
   });
 
   it("returns Gold III with Platinum I as next tier for SR 3100", async () => {
@@ -495,6 +513,7 @@ describe("/api/app/stats/rank/progress", () => {
       minSr: 3600,
       maxSr: 4199,
     });
+    expect(body.data.srToNextTier).toBe(500);
   });
 
   it("returns Iridescent with no next tier for SR 10000", async () => {
@@ -508,6 +527,9 @@ describe("/api/app/stats/rank/progress", () => {
       maxSr: null,
     });
     expect(body.data.next).toBeNull();
+    expect(body.data.srToNextTier).toBeNull();
+    expect(body.data.nextDivision).toBeNull();
+    expect(body.data.nextRank).toBeNull();
   });
 });
 

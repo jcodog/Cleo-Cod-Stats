@@ -692,6 +692,7 @@ type DashboardSnapshot = {
   rank: {
     currentRank: string | null;
     currentSr: number | null;
+    nextTierTarget: string | null;
     nextDivisionTarget: string | null;
     nextRankTarget: string | null;
     srNeeded: number | null;
@@ -727,6 +728,7 @@ function createEmptyDashboardSnapshot(): DashboardSnapshot {
     rank: {
       currentRank: null,
       currentSr: null,
+      nextTierTarget: null,
       nextDivisionTarget: null,
       nextRankTarget: null,
       srNeeded: null,
@@ -796,15 +798,14 @@ function hydrateDashboardRank(snapshot: DashboardSnapshot, payload: ContractSucc
   snapshot.rank.currentSr = asNumber(data?.currentSr) ?? snapshot.session.srCurrent;
 
   const nextTargetLabel = buildRankLabel(next);
+  snapshot.rank.nextTierTarget = nextTargetLabel;
   snapshot.rank.nextDivisionTarget = nextTargetLabel;
   snapshot.rank.nextRankTarget = nextTargetLabel;
-
-  const currentSr = snapshot.rank.currentSr;
-  const nextMinSr = asInteger(next?.minSr);
   snapshot.rank.srNeeded =
-    currentSr !== null && nextMinSr !== null
-      ? Math.max(0, nextMinSr - Math.trunc(currentSr))
-      : null;
+    asInteger(data?.srToNextTier) ??
+    asInteger(asRecord(data?.nextDivision)?.srNeeded) ??
+    asInteger(asRecord(data?.nextRank)?.srNeeded) ??
+    null;
 }
 
 function hydrateDashboardMatches(snapshot: DashboardSnapshot, payload: ContractSuccess) {

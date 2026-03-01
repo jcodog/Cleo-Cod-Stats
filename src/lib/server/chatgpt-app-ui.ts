@@ -67,11 +67,23 @@ type RankDivisionViewModel = {
   displayName: string;
   minSr: number;
   maxSr: number | null;
+  srNeeded: number | null;
 };
 
 type RankViewModel = {
+  title: string | null;
+  ruleset: string | null;
+  currentSr: number | null;
   current: RankDivisionViewModel | null;
   next: RankDivisionViewModel | null;
+  nextDivision: RankDivisionViewModel | null;
+  nextRank: RankDivisionViewModel | null;
+  srToNextTier: number | null;
+  srToNextDivision: number | null;
+  srToNextRank: number | null;
+  progressToNextTier: number | null;
+  progressToNextDivision: number | null;
+  progressToNextRank: number | null;
 };
 
 type SettingsViewModel = {
@@ -101,6 +113,7 @@ type WidgetViewModel = {
   rank: {
     currentRank: string | null;
     currentSr: number | null;
+    nextTierTarget: string | null;
     nextDivisionTarget: string | null;
     nextRankTarget: string | null;
     srNeeded: number | null;
@@ -307,13 +320,16 @@ function buildMatchesViewModel(payload: ContractSuccess): MatchesViewModel {
     limit: asOptionalInteger(data.limit) ?? 15,
     hasMore,
     nextCursor,
-    nextCursorHint: hasMore && nextCursor
-      ? `Use codstats_get_match_history with cursor \"${nextCursor}\".`
+    nextCursorHint: hasMore
+      ? "Use the Load Next Page action or call codstats_get_match_history with the returned cursor."
       : "No next page available.",
   };
 }
 
-function toRankDivisionViewModel(value: Record<string, unknown> | null): RankDivisionViewModel | null {
+function toRankDivisionViewModel(
+  value: Record<string, unknown> | null,
+  srNeededOverride?: number | null,
+): RankDivisionViewModel | null {
   if (!value) {
     return null;
   }
@@ -336,20 +352,75 @@ function toRankDivisionViewModel(value: Record<string, unknown> | null): RankDiv
     displayName,
     minSr,
     maxSr,
+    srNeeded: srNeededOverride ?? asOptionalInteger(value.srNeeded),
   };
+}
+
+function computeProgress(currentSr: number | null, currentMin: number | null, nextMin: number | null) {
+  if (currentSr === null || currentMin === null || nextMin === null) {
+    return null;
+  }
+
+  const span = nextMin - currentMin;
+  if (span <= 0) {
+    return null;
+  }
+
+  const progress = ((currentSr - currentMin) / span) * 100;
+  return Math.max(0, Math.min(100, progress));
 }
 
 function buildRankViewModel(payload: ContractSuccess): RankViewModel {
   const data = asRecord(payload.data) ?? {};
+  const currentSr = asNumber(data.currentSr);
   const current = toRankDivisionViewModel(asRecord(data.current));
-  const next =
-    toRankDivisionViewModel(asRecord(data.next)) ??
-    toRankDivisionViewModel(asRecord(data.nextDivision)) ??
-    toRankDivisionViewModel(asRecord(data.nextRank));
+
+  const nextRecord =
+    asRecord(data.next) ??
+    asRecord(data.nextDivision) ??
+    asRecord(data.nextRank);
+  const nextMinSr = asOptionalInteger(nextRecord?.minSr);
+
+  const srToNextTier =
+    asOptionalInteger(data.srToNextTier) ??
+    (currentSr !== null && nextMinSr !== null
+      ? Math.max(0, nextMinSr - Math.trunc(currentSr))
+      : null);
+
+  const next = toRankDivisionViewModel(nextRecord, srToNextTier);
+  const nextDivision = toRankDivisionViewModel(
+    asRecord(data.nextDivision),
+    asOptionalInteger(asRecord(data.nextDivision)?.srNeeded) ?? srToNextTier,
+  ) ?? next;
+  const nextRank = toRankDivisionViewModel(
+    asRecord(data.nextRank),
+    asOptionalInteger(asRecord(data.nextRank)?.srNeeded) ?? srToNextTier,
+  ) ?? next;
+
+  const progressToNextTier =
+    asNumber(data.progressToNextTier) ??
+    computeProgress(currentSr, current?.minSr ?? null, next?.minSr ?? null);
+  const progressToNextDivision =
+    asNumber(data.progressToNextDivision) ??
+    progressToNextTier;
+  const progressToNextRank =
+    asNumber(data.progressToNextRank) ??
+    progressToNextTier;
 
   return {
+    title: asString(data.title),
+    ruleset: asString(data.ruleset),
+    currentSr,
     current,
     next,
+    nextDivision,
+    nextRank,
+    srToNextTier,
+    srToNextDivision: asOptionalInteger(data.srToNextDivision) ?? nextDivision?.srNeeded ?? srToNextTier,
+    srToNextRank: asOptionalInteger(data.srToNextRank) ?? nextRank?.srNeeded ?? srToNextTier,
+    progressToNextTier,
+    progressToNextDivision,
+    progressToNextRank,
   };
 }
 
@@ -407,6 +478,7 @@ function buildWidgetViewModel(payload: ContractSuccess): WidgetViewModel {
     rank: {
       currentRank: asString(rank.currentRank),
       currentSr: asNumber(rank.currentSr),
+      nextTierTarget: asString(rank.nextTierTarget),
       nextDivisionTarget: asString(rank.nextDivisionTarget),
       nextRankTarget: asString(rank.nextRankTarget),
       srNeeded: asOptionalInteger(rank.srNeeded),

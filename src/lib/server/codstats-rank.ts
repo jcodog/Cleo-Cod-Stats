@@ -14,6 +14,10 @@ type RankProgressTier = {
   maxSr: number | null;
 };
 
+type RankProgressTarget = RankProgressTier & {
+  srNeeded: number;
+};
+
 export type RankLadder = {
   title: string;
   ruleset: string;
@@ -22,8 +26,14 @@ export type RankLadder = {
 };
 
 export type RankProgress = {
+  title: string;
+  ruleset: string;
+  currentSr: number;
   current: RankProgressTier;
   next: RankProgressTier | null;
+  srToNextTier: number | null;
+  nextDivision: RankProgressTarget | null;
+  nextRank: RankProgressTarget | null;
 };
 
 const LADDER_UPDATED_AT = Date.UTC(2026, 1, 1);
@@ -80,6 +90,14 @@ function toProgressTier(division: RankDivision): RankProgressTier {
   };
 }
 
+function getSrToNextTier(currentSr: number, nextDivision: RankDivision | null) {
+  if (!nextDivision) {
+    return null;
+  }
+
+  return Math.max(0, nextDivision.minSr - currentSr);
+}
+
 function isWithinDivision(currentSr: number, division: RankDivision) {
   if (currentSr < division.minSr) {
     return false;
@@ -124,9 +142,18 @@ export function getCodstatsRankProgress(currentSr: number, ladder: RankLadder): 
   const currentIndex = getCurrentDivisionIndex(currentSr, divisions);
   const currentDivision = divisions[currentIndex];
   const nextDivision = currentIndex < divisions.length - 1 ? divisions[currentIndex + 1] : null;
+  const next = nextDivision ? toProgressTier(nextDivision) : null;
+  const srToNextTier = getSrToNextTier(currentSr, nextDivision);
+  const nextTarget = next && srToNextTier !== null ? { ...next, srNeeded: srToNextTier } : null;
 
   return {
+    title: ladder.title,
+    ruleset: ladder.ruleset,
+    currentSr,
     current: toProgressTier(currentDivision),
-    next: nextDivision ? toProgressTier(nextDivision) : null,
+    next,
+    srToNextTier,
+    nextDivision: nextTarget,
+    nextRank: nextTarget,
   };
 }

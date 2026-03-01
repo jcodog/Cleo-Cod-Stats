@@ -312,13 +312,20 @@
 
     setText("widget-rank-current", toText(rank.currentRank) || "--");
     setText("widget-rank-current-sr", formatInteger(rank.currentSr));
-    setText("widget-rank-next-division", toText(rank.nextDivisionTarget) || "--");
-    setText("widget-rank-next-rank", toText(rank.nextRankTarget) || "--");
+    const widgetNextTier =
+      toText(rank.nextTierTarget) ||
+      toText(rank.nextDivisionTarget) ||
+      toText(rank.nextRankTarget);
+    setText("widget-rank-next-division", widgetNextTier || "--");
+    setText("widget-rank-next-rank", widgetNextTier || "--");
+    const widgetSrNeeded = toInteger(rank.srNeeded);
     setText(
       "widget-rank-sr-needed",
-      toInteger(rank.srNeeded) === null
-        ? "--"
-        : `${NUMBER_FORMAT.format(toInteger(rank.srNeeded))} SR`,
+      widgetSrNeeded === null
+        ? widgetNextTier
+          ? "At max tier"
+          : "--"
+        : `${NUMBER_FORMAT.format(widgetSrNeeded)} SR`,
     );
 
     const matchListNode = document.getElementById("widget-matches-list");
@@ -452,14 +459,14 @@
       "session-wl",
       wins === null || losses === null
         ? "--"
-        : `${NUMBER_FORMAT.format(wins)} ${NUMBER_FORMAT.format(losses)}`,
+        : `${NUMBER_FORMAT.format(wins)}-${NUMBER_FORMAT.format(losses)}`,
     );
     setText("session-kd", formatDecimal(viewModel.kd, 2));
     setText(
       "session-kd-count",
       kills === null || deaths === null
         ? "--"
-        : `${NUMBER_FORMAT.format(kills)} ${NUMBER_FORMAT.format(deaths)}`,
+        : `${NUMBER_FORMAT.format(kills)} / ${NUMBER_FORMAT.format(deaths)}`,
     );
     setText("session-best-streak", formatInteger(viewModel.bestStreak));
     setText("session-start-time", formatDateTime(viewModel.startedAt));
@@ -594,7 +601,7 @@
           kdCountNode.textContent =
             kills === null || deaths === null
               ? "--"
-              : `${NUMBER_FORMAT.format(kills)} ${NUMBER_FORMAT.format(deaths)}`;
+              : `${NUMBER_FORMAT.format(kills)} / ${NUMBER_FORMAT.format(deaths)}`;
         }
         if (kdNode) {
           kdNode.textContent = formatDecimal(item.kd, 2);
@@ -613,8 +620,8 @@
     setText("matches-next-status", hasMore ? "More matches are available." : "You are on the final page.");
     setText(
       "matches-next-hint",
-      hasMore && nextCursor
-        ? `Use codstats_get_match_history with cursor \"${nextCursor}\".`
+      hasMore
+        ? "Use Load Next Page or call codstats_get_match_history with the returned cursor."
         : "Use codstats_get_match_history to refresh this feed.",
     );
 
@@ -627,7 +634,10 @@
 
   function renderRank(viewModel) {
     const current = asObject(viewModel.current);
-    const next = asObject(viewModel.next);
+    const next =
+      asObject(viewModel.next) ||
+      asObject(viewModel.nextDivision) ||
+      asObject(viewModel.nextRank);
 
     const currentRank = toText(current && current.rank);
     const currentDivision = toText(current && current.division);
@@ -636,9 +646,7 @@
       (currentRank
         ? `${currentRank}${currentDivision ? ` ${currentDivision}` : ""}`
         : null);
-    const currentTierLabel = currentDisplayName
-      ? currentDisplayName
-      : "Unranked";
+    const currentTierLabel = currentDisplayName || "Unranked";
 
     const nextRank = toText(next && next.rank);
     const nextDivision = toText(next && next.division);
@@ -648,22 +656,77 @@
         ? `${nextRank}${nextDivision ? ` ${nextDivision}` : ""}`
         : null);
 
-    setText("rank-title", "Rank Progress");
-    setText("rank-ruleset", "Live ladder state from the configured SR ruleset.");
+    const currentSr = toInteger(viewModel.currentSr);
+    const srToNext =
+      toInteger(viewModel.srToNextTier) ??
+      toInteger(viewModel.srToNextDivision) ??
+      toInteger(viewModel.srToNextRank);
+
+    const progressToNext =
+      toNumber(viewModel.progressToNextTier) ??
+      toNumber(viewModel.progressToNextDivision) ??
+      toNumber(viewModel.progressToNextRank);
+
+    const nextMinSr = toInteger(next && next.minSr);
+
+    setText("rank-title", toText(viewModel.title) || "Rank Progress");
+    setText(
+      "rank-ruleset",
+      toText(viewModel.ruleset) || "Live ladder state from the configured SR ruleset.",
+    );
     setText("rank-current-tier", currentTierLabel);
     setText("rank-current-division", currentTierLabel);
     setText("rank-current-range", formatRange(current));
+    setText("rank-current-sr", formatInteger(currentSr));
+    setProgress("rank-tier-progress-fill", progressToNext);
+    setText(
+      "rank-tier-progress-label",
+      progressToNext === null
+        ? "Progress unavailable"
+        : `${Math.round(progressToNext)}% through this division`,
+    );
+
+    setText(
+      "rank-next-division-needed",
+      srToNext === null
+        ? "--"
+        : `${NUMBER_FORMAT.format(srToNext)} SR`,
+    );
+    setText(
+      "rank-next-rank-needed",
+      srToNext === null
+        ? "--"
+        : `${NUMBER_FORMAT.format(srToNext)} SR`,
+    );
+    setProgress("rank-next-division-fill", progressToNext);
+    setProgress("rank-next-rank-fill", progressToNext);
 
     if (nextDisplayName) {
       setHidden("rank-next-tier-section", false);
+      setHidden("rank-next-sr-section", false);
       setText("rank-next-tier", nextDisplayName);
       setText("rank-next-range", formatRange(next));
+      setText(
+        "rank-sr-to-next",
+        srToNext === null
+          ? "--"
+          : `${NUMBER_FORMAT.format(srToNext)} SR`,
+      );
+      setText(
+        "rank-next-threshold",
+        nextMinSr === null
+          ? ""
+          : `Reach ${NUMBER_FORMAT.format(nextMinSr)} SR`,
+      );
       return;
     }
 
     setHidden("rank-next-tier-section", true);
+    setHidden("rank-next-sr-section", true);
     setText("rank-next-tier", "--");
     setText("rank-next-range", "--");
+    setText("rank-sr-to-next", "--");
+    setText("rank-next-threshold", "");
   }
 
   function resetDisconnectState() {

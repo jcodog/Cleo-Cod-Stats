@@ -614,6 +614,19 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
           <strong class="codstats-stat-value" id="rank-next-tier">--</strong>
           <p class="codstats-note" id="rank-next-range">--</p>
         </article>
+        <article class="codstats-card">
+          <span class="codstats-stat-label">Current SR</span>
+          <strong class="codstats-stat-value" id="rank-current-sr">--</strong>
+          <div class="codstats-progress-track codstats-rank-progress-track">
+            <div class="codstats-progress-fill" id="rank-tier-progress-fill"></div>
+          </div>
+          <p class="codstats-note" id="rank-tier-progress-label">--</p>
+        </article>
+        <article class="codstats-card" id="rank-next-sr-section">
+          <span class="codstats-stat-label">SR To Next Tier</span>
+          <strong class="codstats-stat-value" id="rank-sr-to-next">--</strong>
+          <p class="codstats-note" id="rank-next-threshold">--</p>
+        </article>
       </section>
     </main>`;
     case "settings":
@@ -743,7 +756,7 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
 
           <dl class="codstats-widget-metric-stack">
             <div class="codstats-widget-metric-row">
-              <dt>Current Rank</dt>
+              <dt>Current Tier</dt>
               <dd id="widget-rank-current">--</dd>
             </div>
             <div class="codstats-widget-metric-row">
@@ -751,15 +764,11 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
               <dd id="widget-rank-current-sr">--</dd>
             </div>
             <div class="codstats-widget-metric-row">
-              <dt>Next Division</dt>
+              <dt>Next Tier</dt>
               <dd id="widget-rank-next-division">--</dd>
             </div>
             <div class="codstats-widget-metric-row">
-              <dt>Next Rank</dt>
-              <dd id="widget-rank-next-rank">--</dd>
-            </div>
-            <div class="codstats-widget-metric-row">
-              <dt>SR Needed</dt>
+              <dt>SR To Next Tier</dt>
               <dd id="widget-rank-sr-needed">--</dd>
             </div>
           </dl>

@@ -198,6 +198,9 @@ type RankLadder = {
 
 ```ts
 type RankProgress = {
+  title: string
+  ruleset: string
+  currentSr: number
   current: {
     rank: string
     division: string | null
@@ -211,6 +214,23 @@ type RankProgress = {
     displayName: string
     minSr: number
     maxSr: number | null
+  } | null
+  srToNextTier: number | null
+  nextDivision: {
+    rank: string
+    division: string | null
+    displayName: string
+    minSr: number
+    maxSr: number | null
+    srNeeded: number
+  } | null
+  nextRank: {
+    rank: string
+    division: string | null
+    displayName: string
+    minSr: number
+    maxSr: number | null
+    srNeeded: number
   } | null
 }
 ```
