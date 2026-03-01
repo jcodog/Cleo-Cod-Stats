@@ -321,8 +321,8 @@ function buildMatchesViewModel(payload: ContractSuccess): MatchesViewModel {
     hasMore,
     nextCursor,
     nextCursorHint: hasMore
-      ? "Use the Load Next Page action or call codstats_get_match_history with the returned cursor."
-      : "No next page available.",
+      ? "There are more matches. Please use the codstats_get_match_history tool again with the next cursor to load them."
+      : "No more matches.",
   };
 }
 

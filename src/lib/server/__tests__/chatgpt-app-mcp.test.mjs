@@ -306,8 +306,55 @@ describe("ChatGPT MCP CodStats app", () => {
       expect(result.structuredContent.data.uiOutput.templateUrl).toBe(TEST_MATCHES_URL);
       expect(result._meta.codstats.templateName).toBe("matches");
       expect(Array.isArray(result._meta.codstats.viewModel.items)).toBe(true);
+      expect(result._meta.codstats.viewModel.hasMore).toBe(false);
+      expect(result._meta.codstats.viewModel.nextCursorHint).toBe("No more matches.");
       expect(result.content?.[0]?.text).toBe("Match history loaded.");
       expect(result.content?.[0]?.text.split("\n").length).toBe(1);
+    });
+  });
+
+  it("sets manual pagination hint when more matches exist", async () => {
+    globalThis.fetch = async (input) => {
+      const url = new URL(input);
+
+      if (url.pathname === "/api/app/stats/matches") {
+        return jsonResponse(
+          200,
+          contractSuccess(CHATGPT_APP_VIEWS.matchesHistory, {
+            items: [
+              {
+                matchId: "match_2",
+                mode: "search_and_destroy",
+                playedAt: 1700000001000,
+                outcome: "loss",
+              },
+            ],
+            nextCursor: "cursor_2",
+            hasMore: true,
+            limit: 15,
+          }),
+        );
+      }
+
+      return jsonResponse(404, contractError(CHATGPT_APP_ERROR_CODES.notFound, "not found"));
+    };
+
+    await withMcpClient(async ({ client }) => {
+      const result = await client.callTool({
+        name: "codstats_get_match_history",
+        arguments: {
+          limit: 15,
+        },
+      });
+
+      expect(result.isError).not.toBe(true);
+      expectContractShape(result.structuredContent, CHATGPT_APP_VIEWS.matchesHistory);
+      expect(result.structuredContent.data.hasMore).toBe(true);
+      expect(result.structuredContent.data.nextCursor).toBe("cursor_2");
+      expect(result._meta.codstats.viewModel.hasMore).toBe(true);
+      expect(result._meta.codstats.viewModel.nextCursorHint).toBe(
+        "There are more matches. Please use the codstats_get_match_history tool again with the next cursor to load them.",
+      );
     });
   });
 
@@ -625,6 +672,10 @@ describe("ChatGPT MCP CodStats app", () => {
         expect(html).not.toContain("/ui/codstats/styles.css");
       } else {
         expect(html).toContain("/ui/codstats/styles.css");
+      }
+
+      if (templateName === "matches") {
+        expect(html).not.toContain('id="matches-next-button"');
       }
 
       expect(html).toContain("/ui/codstats/app.js");

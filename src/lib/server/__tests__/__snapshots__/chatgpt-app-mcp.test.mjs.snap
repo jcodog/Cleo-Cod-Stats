@@ -695,17 +695,8 @@ exports[`ChatGPT MCP CodStats app matches template HTML snapshots: matches-templ
       </template>
 
       <footer class="codstats-card codstats-footer">
-        <p class="codstats-footer-status" id="matches-next-status">No next page available.</p>
-        <p class="codstats-note" id="matches-next-hint">Use codstats_get_match_history to request the next page.</p>
-        <button
-          type="button"
-          class="codstats-btn codstats-btn-secondary is-hidden"
-          id="matches-next-button"
-          data-tool="codstats_get_match_history"
-          data-tool-args='{"limit":15}'
-        >
-          Load Next Page
-        </button>
+        <p class="codstats-footer-status" id="matches-next-status">No more matches.</p>
+        <p class="codstats-note" id="matches-next-hint">Run codstats_get_match_history again to refresh this feed.</p>
       </footer>
     </main>
   </body>

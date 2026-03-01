@@ -277,18 +277,7 @@
           return;
         }
 
-        const isMatchesNextButton = button.id === "matches-next-button";
-        if (isMatchesNextButton) {
-          setText("matches-next-status", "Loading next page...");
-          setText("matches-next-hint", "Fetching next page from CodStats...");
-        }
-
-        const result = await callTool(toolName, readToolArgs(button), button);
-
-        if (isMatchesNextButton && (!result || result.isError === true)) {
-          setText("matches-next-status", "Could not load next page.");
-          setText("matches-next-hint", "Try codstats_get_match_history again.");
-        }
+        await callTool(toolName, readToolArgs(button), button);
       });
     }
   }
@@ -558,8 +547,6 @@
   function renderMatches(viewModel) {
     const listNode = document.getElementById("matches-list");
     const templateNode = document.getElementById("codstats-match-template");
-    const openai = window.openai;
-    const canCallTools = !!(openai && typeof openai.callTool === "function");
     const items = asArray(viewModel.items)
       .map((item) => asObject(item))
       .filter((item) => item !== null)
@@ -646,31 +633,23 @@
     }
 
     const hasMore = toBoolean(viewModel.hasMore);
-    const nextCursor = toText(viewModel.nextCursor);
-    const canLoadNextPage = hasMore && !!nextCursor && canCallTools;
+    const hintFromPayload = toText(viewModel.nextCursorHint);
 
     setText(
       "matches-next-status",
-      canLoadNextPage ? "More matches are available." : "You are on the final page.",
+      hasMore ? "There are more matches." : "No more matches.",
     );
     setText(
       "matches-next-hint",
-      canLoadNextPage
-        ? "Use Load Next Page to fetch and render the next set of matches."
-        : "Use codstats_get_match_history to refresh this feed.",
+      hintFromPayload ||
+        (hasMore
+          ? "There are more matches. Please use the codstats_get_match_history tool again with the next cursor to load them."
+          : "Run codstats_get_match_history again to refresh this feed."),
     );
 
     const nextButton = document.getElementById("matches-next-button");
     if (nextButton) {
-      nextButton.classList.toggle("is-hidden", !canLoadNextPage);
-      nextButton.setAttribute(
-        "data-tool-args",
-        JSON.stringify(
-          canLoadNextPage
-            ? { cursor: nextCursor, limit: 15 }
-            : { limit: 15 },
-        ),
-      );
+      nextButton.classList.add("is-hidden");
     }
   }
 
