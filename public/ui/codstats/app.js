@@ -670,6 +670,14 @@
         ? `${currentRank}${currentDivision ? ` ${currentDivision}` : ""}`
         : null);
     const currentTierLabel = currentDisplayName || "Unranked";
+    const currentTierPill =
+      currentRank && currentDivision
+        ? `${currentRank} Tier ${currentDivision}`
+        : currentTierLabel;
+    const currentTierValue =
+      currentRank && currentDivision
+        ? `${currentRank} - Tier ${currentDivision}`
+        : currentTierLabel;
 
     const nextDivisionRank = toText(nextDivision && nextDivision.rank);
     const nextDivisionTier = toText(nextDivision && nextDivision.division);
@@ -678,6 +686,10 @@
       (nextDivisionRank
         ? `${nextDivisionRank}${nextDivisionTier ? ` ${nextDivisionTier}` : ""}`
         : null);
+    const nextTierValue =
+      nextDivisionRank && nextDivisionTier
+        ? `${nextDivisionRank} - Tier ${nextDivisionTier}`
+        : (nextDivisionLabel || "--");
 
     const nextRankName = toText(nextRank && nextRank.rank);
     const nextRankTier = toText(nextRank && nextRank.division);
@@ -714,62 +726,58 @@
       toNumber(viewModel.progressToNextDivision) ??
       computeProgressValue(currentSr, currentMinSr, nextDivisionMinSr);
 
-    const progressToNextRank =
-      toNumber(viewModel.progressToNextRank) ??
-      computeProgressValue(currentSr, currentMinSr, nextRankMinSr);
-
     const progressToNextTier =
       toNumber(viewModel.progressToNextTier) ??
       progressToNextDivision;
 
     const nextThresholdText =
-      nextRankLabel &&
-      nextDivisionLabel &&
-      nextRankLabel !== nextDivisionLabel &&
-      nextRankMinSr !== null &&
-      nextDivisionMinSr !== null
-        ? `Division at ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR · Rank at ${NUMBER_FORMAT.format(nextRankMinSr)} SR`
-        : nextDivisionMinSr === null
-          ? ""
-          : `Reach ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR`;
+      nextDivisionMinSr === null
+        ? ""
+        : nextRankMinSr !== null && nextRankLabel && nextRankLabel !== nextDivisionLabel
+          ? `Tier target: ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR | Rank target: ${NUMBER_FORMAT.format(nextRankMinSr)} SR`
+          : `Tier target: ${NUMBER_FORMAT.format(nextDivisionMinSr)} SR`;
 
     setText("rank-title", toText(viewModel.title) || "Rank Progress");
     setText(
       "rank-ruleset",
       toText(viewModel.ruleset) || "Live ladder state from the configured SR ruleset.",
     );
-    setText("rank-current-tier", currentTierLabel);
-    setText("rank-current-division", currentTierLabel);
+    setText("rank-current-tier", currentTierPill);
+    setText("rank-current-division", currentTierValue);
     setText("rank-current-range", formatRange(current));
     setText("rank-current-sr", formatInteger(currentSr));
     setProgress("rank-tier-progress-fill", progressToNextTier);
     setText(
       "rank-tier-progress-label",
       progressToNextDivision === null
-        ? "Progress unavailable"
-        : `${Math.round(progressToNextDivision)}% through this division`,
+        ? "Top tier reached"
+        : currentDivision
+          ? `${Math.round(progressToNextDivision)}% through Tier ${currentDivision}`
+          : `${Math.round(progressToNextDivision)}% through this tier`,
     );
 
     setText(
       "rank-next-division-needed",
       srToNextDivision === null
         ? "--"
-        : `${NUMBER_FORMAT.format(srToNextDivision)} SR`,
+        : nextDivisionTier
+          ? `${NUMBER_FORMAT.format(srToNextDivision)} SR to Tier ${nextDivisionTier}`
+          : `${NUMBER_FORMAT.format(srToNextDivision)} SR`,
     );
     setText(
       "rank-next-rank-needed",
       srToNextRank === null
         ? "--"
-        : `${NUMBER_FORMAT.format(srToNextRank)} SR`,
+        : nextRankName
+          ? `${NUMBER_FORMAT.format(srToNextRank)} SR to ${nextRankName}`
+          : `${NUMBER_FORMAT.format(srToNextRank)} SR`,
     );
-    setProgress("rank-next-division-fill", progressToNextDivision);
-    setProgress("rank-next-rank-fill", progressToNextRank);
 
     if (nextDivisionLabel) {
       setHidden("rank-next-tier-section", false);
       setHidden("rank-next-sr-section", false);
       setHidden("rank-progress-targets", false);
-      setText("rank-next-tier", nextDivisionLabel);
+      setText("rank-next-tier", nextTierValue);
       setText("rank-next-range", formatRange(nextDivision));
       setText(
         "rank-sr-to-next",
@@ -788,6 +796,8 @@
     setText("rank-next-range", "--");
     setText("rank-sr-to-next", "--");
     setText("rank-next-threshold", "");
+    setText("rank-next-division-needed", "--");
+    setText("rank-next-rank-needed", "--");
   }
 
   function resetDisconnectState() {

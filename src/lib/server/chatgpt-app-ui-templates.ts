@@ -604,12 +604,12 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
 
       <section class="codstats-grid codstats-grid-two">
         <article class="codstats-card">
-          <span class="codstats-stat-label">Current Tier</span>
+          <span class="codstats-stat-label">Current Rank / Tier</span>
           <strong class="codstats-stat-value" id="rank-current-division">--</strong>
           <p class="codstats-note" id="rank-current-range">--</p>
         </article>
         <article class="codstats-card" id="rank-next-tier-section">
-          <span class="codstats-stat-label">Next Tier</span>
+          <span class="codstats-stat-label">Next Rank / Tier</span>
           <strong class="codstats-stat-value" id="rank-next-tier">--</strong>
           <p class="codstats-note" id="rank-next-range">--</p>
         </article>
@@ -630,31 +630,21 @@ function renderTemplateBody(templateName: CodstatsTemplateName) {
 
       <section class="codstats-card" id="rank-progress-targets">
         <div class="codstats-card-head">
-          <h2 class="codstats-card-title">Progress Targets</h2>
-          <p class="codstats-card-subtitle">Division and rank climb requirements from ladder boundaries.</p>
+          <h2 class="codstats-card-title">Climb Targets</h2>
+          <p class="codstats-card-subtitle">Simple SR goals for your next tier and next rank.</p>
         </div>
 
-        <div class="codstats-progress-stack">
-          <div class="codstats-progress-block">
-            <div class="codstats-progress-head">
-              <span>Next Division</span>
-              <strong id="rank-next-division-needed">--</strong>
-            </div>
-            <div class="codstats-progress-track">
-              <div class="codstats-progress-fill" id="rank-next-division-fill"></div>
-            </div>
+        <dl class="codstats-detail-list codstats-rank-target-list">
+          <div class="codstats-detail-row">
+            <dt>Next Tier (same rank)</dt>
+            <dd id="rank-next-division-needed">--</dd>
           </div>
 
-          <div class="codstats-progress-block">
-            <div class="codstats-progress-head">
-              <span>Next Rank</span>
-              <strong id="rank-next-rank-needed">--</strong>
-            </div>
-            <div class="codstats-progress-track">
-              <div class="codstats-progress-fill" id="rank-next-rank-fill"></div>
-            </div>
+          <div class="codstats-detail-row">
+            <dt>Next Rank (new rank)</dt>
+            <dd id="rank-next-rank-needed">--</dd>
           </div>
-        </div>
+        </dl>
       </section>
     </main>`;
     case "settings":

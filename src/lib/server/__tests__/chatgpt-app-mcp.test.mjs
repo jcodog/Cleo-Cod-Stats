@@ -678,6 +678,12 @@ describe("ChatGPT MCP CodStats app", () => {
         expect(html).not.toContain('id="matches-next-button"');
       }
 
+      if (templateName === "rank") {
+        expect(html).toContain("Current Rank / Tier");
+        expect(html).toContain("Next Tier (same rank)");
+        expect(html).not.toContain("Next Division");
+      }
+
       expect(html).toContain("/ui/codstats/app.js");
       expect(html).toMatchSnapshot(`${templateName}-template`);
     }

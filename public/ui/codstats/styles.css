@@ -162,6 +162,7 @@ body {
 }
 
 .codstats-stat-label {
+  display: block;
   color: var(--cs-muted);
   font-size: 11px;
   text-transform: uppercase;
@@ -170,6 +171,8 @@ body {
 }
 
 .codstats-stat-value {
+  display: block;
+  margin-top: 4px;
   font-size: 24px;
   line-height: 1;
   font-weight: 800;
@@ -468,6 +471,15 @@ body {
   font-size: 13px;
   font-weight: 700;
   text-align: right;
+}
+
+.codstats-rank-target-list .codstats-detail-row dt {
+  font-size: 12px;
+}
+
+.codstats-rank-target-list .codstats-detail-row dd {
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .codstats-positive {
