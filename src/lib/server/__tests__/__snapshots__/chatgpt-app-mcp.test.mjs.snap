@@ -1,0 +1,852 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`ChatGPT MCP CodStats app matches template HTML snapshots: widget-template 1`] = `
+"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CodStats Command Center</title>
+    <link rel="canonical" href="https://stats-dev.cleoai.cloud/ui/codstats/widget.html" />
+    <style>
+:root {
+  --cs-bg: #05070b;
+  --cs-bg-2: #0a1017;
+  --cs-surface: #101722;
+  --cs-border: rgba(123, 150, 182, 0.26);
+  --cs-text: #ecf4ff;
+  --cs-muted: #95a8c1;
+  --cs-accent: #26d9a6;
+  --cs-accent-soft: rgba(38, 217, 166, 0.2);
+  --cs-accent-shadow: rgba(38, 217, 166, 0.28);
+  --cs-win: #34d399;
+  --cs-loss: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(38, 217, 166, 0.2), rgba(38, 217, 166, 0) 42%),
+    radial-gradient(circle at 85% -20%, rgba(73, 123, 194, 0.3), rgba(73, 123, 194, 0) 38%),
+    linear-gradient(180deg, var(--cs-bg), var(--cs-bg-2));
+  color: var(--cs-text);
+  font-family: "Bahnschrift", "Rajdhani", "Trebuchet MS", sans-serif;
+  line-height: 1.35;
+}
+
+.codstats-shell {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: clamp(10px, 2vw, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.codstats-widget-shell {
+  width: min(720px, 100%);
+}
+
+.codstats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.codstats-widget-header {
+  align-items: center;
+}
+
+.codstats-eyebrow {
+  margin: 0;
+  color: var(--cs-accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.codstats-title {
+  margin: 4px 0 2px;
+  font-size: clamp(18px, 2.8vw, 24px);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.codstats-widget-title {
+  font-size: clamp(18px, 2.8vw, 23px);
+}
+
+.codstats-subtitle {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+.codstats-widget-header-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-pill {
+  align-self: center;
+  border-radius: 999px;
+  border: 1px solid var(--cs-border);
+  background: rgba(13, 20, 31, 0.84);
+  color: var(--cs-text);
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.codstats-pill-accent {
+  border-color: rgba(38, 217, 166, 0.6);
+  background: var(--cs-accent-soft);
+  color: #d6fff1;
+  box-shadow: 0 0 0 1px rgba(38, 217, 166, 0.25), 0 6px 20px var(--cs-accent-shadow);
+}
+
+.codstats-card {
+  border-radius: 12px;
+  border: 1px solid var(--cs-border);
+  background: linear-gradient(180deg, rgba(18, 26, 39, 0.95), rgba(15, 22, 33, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px rgba(0, 0, 0, 0.32);
+  padding: 10px;
+}
+
+.codstats-widget-card {
+  border-color: rgba(130, 156, 188, 0.28);
+}
+
+.codstats-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.codstats-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.codstats-card-subtitle {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+.codstats-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.codstats-widget-metric-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.codstats-widget-metric {
+  margin: 0;
+  border: 1px solid rgba(127, 153, 185, 0.24);
+  border-radius: 9px;
+  background: rgba(12, 19, 30, 0.92);
+  padding: 7px;
+  min-height: 58px;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+}
+
+.codstats-widget-metric-wide {
+  grid-column: span 3;
+}
+
+.codstats-widget-metric dt,
+.codstats-widget-metric-row dt {
+  color: var(--cs-muted);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.codstats-widget-metric dd {
+  margin: 0;
+  color: #f6fbff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.codstats-widget-metric-stack {
+  margin: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.codstats-widget-metric-row {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(127, 153, 185, 0.22);
+  background: rgba(12, 19, 30, 0.88);
+}
+
+.codstats-widget-metric-row dd {
+  margin: 0;
+  color: #f6fbff;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.codstats-widget-match-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.codstats-widget-match-row {
+  border-radius: 10px;
+  border: 1px solid rgba(125, 151, 186, 0.25);
+  background: rgba(12, 19, 30, 0.9);
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(66px, 1fr) minmax(52px, 1fr) minmax(84px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-widget-match-main {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f4fbff;
+  letter-spacing: 0.01em;
+}
+
+.codstats-widget-match-sr {
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.codstats-widget-match-kd,
+.codstats-widget-match-time {
+  font-size: 11px;
+  color: var(--cs-muted);
+  text-align: right;
+}
+
+.codstats-widget-connection-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.codstats-empty-text,
+.codstats-note {
+  margin: 0;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+#widget-actions-hint {
+  margin-top: 6px;
+}
+
+.codstats-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.codstats-actions-wrap {
+  flex-wrap: wrap;
+}
+
+.codstats-btn {
+  border: 1px solid rgba(38, 217, 166, 0.6);
+  background: linear-gradient(180deg, rgba(38, 217, 166, 0.26), rgba(16, 107, 83, 0.22));
+  color: #dcfff3;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.codstats-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(23, 154, 119, 0.28);
+}
+
+.codstats-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.codstats-btn-secondary {
+  border-color: rgba(129, 152, 179, 0.5);
+  background: rgba(24, 33, 46, 0.85);
+  color: #dde9f8;
+}
+
+.codstats-btn-danger {
+  border-color: rgba(239, 68, 68, 0.62);
+  background: rgba(127, 29, 29, 0.34);
+  color: #ffdede;
+}
+
+#widget-disconnect-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.codstats-positive {
+  color: var(--cs-win);
+}
+
+.codstats-negative {
+  color: var(--cs-loss);
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .codstats-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .codstats-pill {
+    align-self: flex-start;
+  }
+
+  .codstats-widget-header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .codstats-widget-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  .codstats-shell {
+    padding: 10px;
+    gap: 9px;
+  }
+
+  .codstats-widget-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codstats-widget-metric-wide {
+    grid-column: span 2;
+  }
+
+  .codstats-widget-match-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codstats-widget-match-sr,
+  .codstats-widget-match-kd,
+  .codstats-widget-match-time {
+    text-align: left;
+  }
+
+  .codstats-actions-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .codstats-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .codstats-title,
+  .codstats-widget-title {
+    font-size: 18px;
+  }
+
+  .codstats-widget-metric dd {
+    font-size: 14px;
+  }
+}
+</style>
+    <script src="https://stats-dev.cleoai.cloud/ui/codstats/app.js" defer></script>
+  </head>
+  <body>
+    
+    <main class="codstats-shell codstats-widget-shell" data-template="widget">
+      <header class="codstats-header codstats-widget-header">
+        <div>
+          <p class="codstats-eyebrow">CodStats Ranked</p>
+          <h1 class="codstats-title codstats-widget-title">Esports Command Deck</h1>
+          <p class="codstats-subtitle" id="widget-subtitle">Live ranked snapshot for your linked account.</p>
+        </div>
+        <div class="codstats-widget-header-controls">
+          <span class="codstats-pill codstats-pill-accent" id="widget-tab-pill">Overview</span>
+          <button
+            type="button"
+            class="codstats-btn codstats-btn-secondary"
+            data-tool="codstats_open"
+            data-tool-args='{"tab":"overview"}'
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <section class="codstats-widget-grid">
+        <article class="codstats-card codstats-widget-card" data-widget-section="current-session">
+          <div class="codstats-card-head">
+            <h2 class="codstats-card-title">Current Session</h2>
+            <p class="codstats-card-subtitle">Live SR performance and core combat stats.</p>
+          </div>
+
+          <dl class="codstats-widget-metric-grid">
+            <div class="codstats-widget-metric">
+              <dt>SR</dt>
+              <dd id="widget-session-sr">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>SR Change</dt>
+              <dd id="widget-session-sr-change">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>Matches</dt>
+              <dd id="widget-session-matches">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>W/L</dt>
+              <dd id="widget-session-wl">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>K/D</dt>
+              <dd id="widget-session-kd">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>Kills</dt>
+              <dd id="widget-session-kills">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>Deaths</dt>
+              <dd id="widget-session-deaths">--</dd>
+            </div>
+            <div class="codstats-widget-metric">
+              <dt>Best Streak</dt>
+              <dd id="widget-session-best-streak">--</dd>
+            </div>
+            <div class="codstats-widget-metric codstats-widget-metric-wide">
+              <dt>Started</dt>
+              <dd id="widget-session-started-at">--</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="codstats-card codstats-widget-card" data-widget-section="rank-progress">
+          <div class="codstats-card-head">
+            <h2 class="codstats-card-title">Rank Progress</h2>
+            <p class="codstats-card-subtitle">Current tier and next ladder targets.</p>
+          </div>
+
+          <dl class="codstats-widget-metric-stack">
+            <div class="codstats-widget-metric-row">
+              <dt>Current Tier</dt>
+              <dd id="widget-rank-current">--</dd>
+            </div>
+            <div class="codstats-widget-metric-row">
+              <dt>Current SR</dt>
+              <dd id="widget-rank-current-sr">--</dd>
+            </div>
+            <div class="codstats-widget-metric-row">
+              <dt>Next Tier</dt>
+              <dd id="widget-rank-next-division">--</dd>
+            </div>
+            <div class="codstats-widget-metric-row">
+              <dt>SR To Next Tier</dt>
+              <dd id="widget-rank-sr-needed">--</dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="codstats-card codstats-widget-card" data-widget-section="recent-matches">
+        <div class="codstats-card-head">
+          <h2 class="codstats-card-title">Recent Matches</h2>
+          <p class="codstats-card-subtitle">Latest ranked results (up to five).</p>
+        </div>
+
+        <ul class="codstats-widget-match-list" id="widget-matches-list"></ul>
+        <template id="codstats-widget-match-row-template">
+          <li class="codstats-widget-match-row">
+            <span class="codstats-widget-match-main" data-field="summary">Mode</span>
+            <span class="codstats-widget-match-sr" data-field="srDelta">--</span>
+            <span class="codstats-widget-match-kd" data-field="kd">--</span>
+            <span class="codstats-widget-match-time" data-field="playedAt">--</span>
+          </li>
+        </template>
+        <p class="codstats-empty-text" id="widget-matches-empty">No recent matches available.</p>
+      </section>
+
+      <section class="codstats-card codstats-widget-card" data-widget-section="connection">
+        <div class="codstats-widget-connection-head">
+          <div class="codstats-card-head">
+            <h2 class="codstats-card-title">Connection</h2>
+            <p class="codstats-card-subtitle">Account link health and actions.</p>
+          </div>
+          <span class="codstats-pill" id="widget-connection-status">Disconnected</span>
+        </div>
+
+        <p class="codstats-note" id="widget-actions-hint">
+          Open settings to link your account. Disconnect is available after linking.
+        </p>
+
+        <div class="codstats-actions codstats-actions-wrap">
+          <button
+            type="button"
+            class="codstats-btn codstats-btn-secondary"
+            data-tool="codstats_open"
+            data-tool-args='{"tab":"settings"}'
+          >
+            Open Settings
+          </button>
+          <button
+            type="button"
+            class="codstats-btn codstats-btn-danger"
+            id="widget-disconnect-button"
+            data-tool="codstats_disconnect"
+            data-tool-args='{"confirm":true}'
+          >
+            Disconnect
+          </button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>"
+`;
+
+exports[`ChatGPT MCP CodStats app matches template HTML snapshots: session-template 1`] = `
+"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CodStats Session</title>
+    <link rel="canonical" href="https://stats-dev.cleoai.cloud/ui/codstats/session.html" />
+    <link rel="stylesheet" href="https://stats-dev.cleoai.cloud/ui/codstats/styles.css" />
+    <script src="https://stats-dev.cleoai.cloud/ui/codstats/app.js" defer></script>
+  </head>
+  <body>
+    
+    <main class="codstats-shell" data-template="session">
+      <header class="codstats-header">
+        <div>
+          <p class="codstats-eyebrow">Ranked Session</p>
+          <h1 class="codstats-title" id="session-title">Session Overview</h1>
+          <p class="codstats-subtitle" id="session-subtitle">Track your current run with live SR and combat stats.</p>
+        </div>
+        <span class="codstats-pill" id="session-status-pill">Inactive</span>
+      </header>
+
+      <section class="codstats-card">
+        <div class="codstats-stat-grid codstats-stat-grid-primary">
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">SR Current</span>
+            <strong class="codstats-stat-value" id="session-sr-current">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">SR Delta</span>
+            <strong class="codstats-stat-value" id="session-sr-delta">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">W L</span>
+            <strong class="codstats-stat-value" id="session-wl">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">KD</span>
+            <strong class="codstats-stat-value" id="session-kd">--</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="codstats-card">
+        <div class="codstats-stat-grid codstats-stat-grid-secondary">
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">Kills Deaths</span>
+            <strong class="codstats-stat-value" id="session-kd-count">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">Best Streak</span>
+            <strong class="codstats-stat-value" id="session-best-streak">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">Start Time</span>
+            <strong class="codstats-stat-value codstats-stat-value-small" id="session-start-time">--</strong>
+          </article>
+          <article class="codstats-stat">
+            <span class="codstats-stat-label">Last Updated</span>
+            <strong class="codstats-stat-value codstats-stat-value-small" id="session-last-updated">--</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="codstats-card">
+        <div class="codstats-card-head">
+          <h2 class="codstats-card-title">Highlights</h2>
+          <p class="codstats-card-subtitle">Top recent match SR swings in this session.</p>
+        </div>
+        <ol class="codstats-highlight-list" id="session-highlights"></ol>
+        <p class="codstats-empty-text" id="session-highlights-empty">No recent match deltas available.</p>
+      </section>
+
+      <section class="codstats-card codstats-empty is-hidden" id="session-empty-state">
+        <h2 class="codstats-card-title">No active session</h2>
+        <p class="codstats-card-subtitle" id="session-empty-copy">Start a ranked run to fill this panel with live stats.</p>
+        <div class="codstats-actions">
+          <button type="button" class="codstats-btn codstats-btn-secondary" data-tool="codstats_get_match_history" data-tool-args='{"limit":15}'>Open Matches</button>
+          <button type="button" class="codstats-btn" data-tool="codstats_get_last_session">Load Last Session</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>"
+`;
+
+exports[`ChatGPT MCP CodStats app matches template HTML snapshots: matches-template 1`] = `
+"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CodStats Match History</title>
+    <link rel="canonical" href="https://stats-dev.cleoai.cloud/ui/codstats/matches.html" />
+    <link rel="stylesheet" href="https://stats-dev.cleoai.cloud/ui/codstats/styles.css" />
+    <script src="https://stats-dev.cleoai.cloud/ui/codstats/app.js" defer></script>
+  </head>
+  <body>
+    
+    <main class="codstats-shell" data-template="matches">
+      <header class="codstats-header">
+        <div>
+          <p class="codstats-eyebrow">Match Feed</p>
+          <h1 class="codstats-title">Recent Matches</h1>
+          <p class="codstats-subtitle">Compact ranked cards with SR movement and combat output.</p>
+        </div>
+        <span class="codstats-pill codstats-pill-accent" id="matches-count-pill">0 loaded</span>
+      </header>
+
+      <section class="codstats-match-list" id="matches-list"></section>
+
+      <template id="codstats-match-template">
+        <article class="codstats-card codstats-match-card">
+          <div class="codstats-match-top">
+            <div>
+              <p class="codstats-match-mode" data-field="mode">Mode</p>
+              <p class="codstats-match-map" data-field="map">Map</p>
+            </div>
+            <span class="codstats-result-pill" data-field="result">Result</span>
+          </div>
+          <div class="codstats-chip-row">
+            <span class="codstats-chip"><span>SR</span><strong data-field="srDelta">--</strong></span>
+            <span class="codstats-chip"><span>K D</span><strong data-field="kdCount">--</strong></span>
+            <span class="codstats-chip"><span>KD</span><strong data-field="kd">--</strong></span>
+            <span class="codstats-chip"><span>Time</span><strong data-field="playedAt">--</strong></span>
+          </div>
+        </article>
+      </template>
+
+      <footer class="codstats-card codstats-footer">
+        <p class="codstats-footer-status" id="matches-next-status">No more matches.</p>
+        <p class="codstats-note" id="matches-next-hint">Run codstats_get_match_history again to refresh this feed.</p>
+      </footer>
+    </main>
+  </body>
+</html>"
+`;
+
+exports[`ChatGPT MCP CodStats app matches template HTML snapshots: rank-template 1`] = `
+"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CodStats Rank Progress</title>
+    <link rel="canonical" href="https://stats-dev.cleoai.cloud/ui/codstats/rank.html" />
+    <link rel="stylesheet" href="https://stats-dev.cleoai.cloud/ui/codstats/styles.css" />
+    <script src="https://stats-dev.cleoai.cloud/ui/codstats/app.js" defer></script>
+  </head>
+  <body>
+    
+    <main class="codstats-shell" data-template="rank">
+      <header class="codstats-header">
+        <div>
+          <p class="codstats-eyebrow">Ladder Progress</p>
+          <h1 class="codstats-title" id="rank-title">Rank Progress</h1>
+          <p class="codstats-subtitle" id="rank-ruleset">Live ladder state from the configured SR ruleset.</p>
+        </div>
+        <span class="codstats-pill codstats-pill-accent" id="rank-current-tier">Unranked</span>
+      </header>
+
+      <section class="codstats-grid codstats-grid-two">
+        <article class="codstats-card">
+          <span class="codstats-stat-label">Current Tier</span>
+          <strong class="codstats-stat-value" id="rank-current-division">--</strong>
+          <p class="codstats-note" id="rank-current-range">--</p>
+        </article>
+        <article class="codstats-card" id="rank-next-tier-section">
+          <span class="codstats-stat-label">Next Tier</span>
+          <strong class="codstats-stat-value" id="rank-next-tier">--</strong>
+          <p class="codstats-note" id="rank-next-range">--</p>
+        </article>
+        <article class="codstats-card">
+          <span class="codstats-stat-label">Current SR</span>
+          <strong class="codstats-stat-value" id="rank-current-sr">--</strong>
+          <div class="codstats-progress-track codstats-rank-progress-track">
+            <div class="codstats-progress-fill" id="rank-tier-progress-fill"></div>
+          </div>
+          <p class="codstats-note" id="rank-tier-progress-label">--</p>
+        </article>
+        <article class="codstats-card" id="rank-next-sr-section">
+          <span class="codstats-stat-label">SR To Next Tier</span>
+          <strong class="codstats-stat-value" id="rank-sr-to-next">--</strong>
+          <p class="codstats-note" id="rank-next-threshold">--</p>
+        </article>
+      </section>
+
+      <section class="codstats-card" id="rank-progress-targets">
+        <div class="codstats-card-head">
+          <h2 class="codstats-card-title">Progress Targets</h2>
+          <p class="codstats-card-subtitle">Division and rank climb requirements from ladder boundaries.</p>
+        </div>
+
+        <div class="codstats-progress-stack">
+          <div class="codstats-progress-block">
+            <div class="codstats-progress-head">
+              <span>Next Division</span>
+              <strong id="rank-next-division-needed">--</strong>
+            </div>
+            <div class="codstats-progress-track">
+              <div class="codstats-progress-fill" id="rank-next-division-fill"></div>
+            </div>
+          </div>
+
+          <div class="codstats-progress-block">
+            <div class="codstats-progress-head">
+              <span>Next Rank</span>
+              <strong id="rank-next-rank-needed">--</strong>
+            </div>
+            <div class="codstats-progress-track">
+              <div class="codstats-progress-fill" id="rank-next-rank-fill"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>"
+`;
+
+exports[`ChatGPT MCP CodStats app matches template HTML snapshots: settings-template 1`] = `
+"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>CodStats Settings</title>
+    <link rel="canonical" href="https://stats-dev.cleoai.cloud/ui/codstats/settings.html" />
+    <link rel="stylesheet" href="https://stats-dev.cleoai.cloud/ui/codstats/styles.css" />
+    <script src="https://stats-dev.cleoai.cloud/ui/codstats/app.js" defer></script>
+  </head>
+  <body>
+    
+    <main class="codstats-shell" data-template="settings">
+      <header class="codstats-header">
+        <div>
+          <p class="codstats-eyebrow">Connection</p>
+          <h1 class="codstats-title">CodStats Settings</h1>
+          <p class="codstats-subtitle">Manage your linked account and sync status.</p>
+        </div>
+        <span class="codstats-pill" id="settings-status-pill">Disconnected</span>
+      </header>
+
+      <section class="codstats-grid codstats-grid-two">
+        <article class="codstats-card">
+          <span class="codstats-stat-label">Connection</span>
+          <strong class="codstats-stat-value" id="settings-connection-value">--</strong>
+        </article>
+        <article class="codstats-card">
+          <span class="codstats-stat-label">Plan</span>
+          <strong class="codstats-stat-value" id="settings-plan-value">--</strong>
+        </article>
+      </section>
+
+      <section class="codstats-card">
+        <dl class="codstats-detail-list">
+          <div class="codstats-detail-row">
+            <dt>Linked Discord</dt>
+            <dd id="settings-discord-value">--</dd>
+          </div>
+          <div class="codstats-detail-row">
+            <dt>Last Sync</dt>
+            <dd id="settings-last-sync-value">--</dd>
+          </div>
+          <div class="codstats-detail-row">
+            <dt>User</dt>
+            <dd id="settings-user-value">--</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="codstats-actions codstats-actions-wrap">
+        <button type="button" class="codstats-btn" data-tool="codstats_open" data-tool-args='{"tab":"overview"}'>Open Dashboard</button>
+        <button type="button" class="codstats-btn codstats-btn-danger" id="settings-disconnect-trigger">Disconnect</button>
+        <button type="button" class="codstats-btn codstats-btn-danger is-hidden" id="settings-disconnect-confirm">Confirm Disconnect</button>
+        <button type="button" class="codstats-btn codstats-btn-secondary is-hidden" id="settings-disconnect-cancel">Cancel</button>
+      </section>
+
+      <p class="codstats-note" id="settings-feedback">Disconnect requires confirmation.</p>
+    </main>
+  </body>
+</html>"
+`;

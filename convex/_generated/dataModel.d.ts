@@ -29,28 +29,26 @@ import type { GenericId } from "convex/values";
 export type DataModel = {
   chatgptAppConnections: {
     document: {
-      accessTokenEnc?: string;
       createdAt: number;
-      expiresAt?: number;
       lastUsedAt?: number;
-      refreshTokenEnc?: string;
+      linkedAt: number;
       revokedAt?: number;
       scopes: Array<string>;
+      status: "active" | "revoked";
       updatedAt: number;
-      userId: string;
+      userId: Id<"users">;
       _id: Id<"chatgptAppConnections">;
       _creationTime: number;
     };
     fieldPaths:
       | "_creationTime"
       | "_id"
-      | "accessTokenEnc"
       | "createdAt"
-      | "expiresAt"
       | "lastUsedAt"
-      | "refreshTokenEnc"
+      | "linkedAt"
       | "revokedAt"
       | "scopes"
+      | "status"
       | "updatedAt"
       | "userId";
     indexes: {
@@ -166,6 +164,129 @@ export type DataModel = {
       by_id: ["_id"];
       by_creation_time: ["_creationTime"];
       by_userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  oauthAuthCodes: {
+    document: {
+      clientId: string;
+      codeChallenge?: string;
+      codeChallengeMethod?: "S256";
+      codeHash: string;
+      createdAt: number;
+      expiresAt: number;
+      redirectUri: string;
+      resource: string;
+      scopes: Array<string>;
+      sessionId: string;
+      stateHash: string;
+      userId: Id<"users">;
+      _id: Id<"oauthAuthCodes">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "clientId"
+      | "codeChallenge"
+      | "codeChallengeMethod"
+      | "codeHash"
+      | "createdAt"
+      | "expiresAt"
+      | "redirectUri"
+      | "resource"
+      | "scopes"
+      | "sessionId"
+      | "stateHash"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_codeHash: ["codeHash", "_creationTime"];
+      by_expiresAt: ["expiresAt", "_creationTime"];
+      by_session_state: ["sessionId", "stateHash", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  oauthClients: {
+    document: {
+      clientId: string;
+      clientName?: string;
+      clientSecretHash?: string;
+      clientUri?: string;
+      createdAt: number;
+      grantTypes: Array<string>;
+      redirectUris: Array<string>;
+      responseTypes: Array<string>;
+      revokedAt?: number;
+      scope?: string;
+      tokenEndpointAuthMethod:
+        | "none"
+        | "client_secret_post"
+        | "client_secret_basic";
+      updatedAt: number;
+      _id: Id<"oauthClients">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "clientId"
+      | "clientName"
+      | "clientSecretHash"
+      | "clientUri"
+      | "createdAt"
+      | "grantTypes"
+      | "redirectUris"
+      | "responseTypes"
+      | "revokedAt"
+      | "scope"
+      | "tokenEndpointAuthMethod"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_clientId: ["clientId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  oauthTokens: {
+    document: {
+      clientId: string;
+      createdAt: number;
+      lastUsedAt?: number;
+      provider: "chatgpt_app";
+      refreshTokenExpiresAt: number;
+      refreshTokenHash: string;
+      resource: string;
+      revokedAt?: number;
+      scopes: Array<string>;
+      userId: Id<"users">;
+      _id: Id<"oauthTokens">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "clientId"
+      | "createdAt"
+      | "lastUsedAt"
+      | "provider"
+      | "refreshTokenExpiresAt"
+      | "refreshTokenHash"
+      | "resource"
+      | "revokedAt"
+      | "scopes"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_expiresAt: ["refreshTokenExpiresAt", "_creationTime"];
+      by_refreshTokenHash: ["refreshTokenHash", "_creationTime"];
+      by_user_provider: ["userId", "provider", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

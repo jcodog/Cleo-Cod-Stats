@@ -72,6 +72,93 @@ export declare const api: {
     };
   };
   mutations: {
+    chatgpt: {
+      disconnectByUserId: FunctionReference<
+        "mutation",
+        "public",
+        { userId: Id<"users"> },
+        any
+      >;
+      touchConnectionLastUsedAt: FunctionReference<
+        "mutation",
+        "public",
+        { userId: Id<"users"> },
+        any
+      >;
+    };
+    oauth: {
+      createAuthorizationCode: FunctionReference<
+        "mutation",
+        "public",
+        {
+          clientId: string;
+          codeChallenge?: string;
+          codeChallengeMethod?: "S256";
+          codeHash: string;
+          expiresAt: number;
+          redirectUri: string;
+          resource: string;
+          scopes: Array<string>;
+          sessionId: string;
+          stateHash: string;
+        },
+        any
+      >;
+      exchangeAuthorizationCode: FunctionReference<
+        "mutation",
+        "public",
+        {
+          clientId: string;
+          codeHash: string;
+          codeVerifierHash?: string;
+          redirectUri: string;
+          refreshTokenExpiresAt: number;
+          refreshTokenHash: string;
+          requestedScopes?: Array<string>;
+          resource: string;
+        },
+        any
+      >;
+      registerClient: FunctionReference<
+        "mutation",
+        "public",
+        {
+          clientId: string;
+          clientName?: string;
+          clientSecretHash?: string;
+          clientUri?: string;
+          grantTypes: Array<string>;
+          redirectUris: Array<string>;
+          responseTypes: Array<string>;
+          scope?: string;
+          tokenEndpointAuthMethod:
+            | "none"
+            | "client_secret_post"
+            | "client_secret_basic";
+        },
+        any
+      >;
+      revokeByRefreshToken: FunctionReference<
+        "mutation",
+        "public",
+        { clientId: string; refreshTokenHash: string },
+        any
+      >;
+      revokeForCurrentUser: FunctionReference<"mutation", "public", {}, any>;
+      rotateRefreshToken: FunctionReference<
+        "mutation",
+        "public",
+        {
+          clientId: string;
+          newRefreshTokenExpiresAt: number;
+          newRefreshTokenHash: string;
+          refreshTokenHash: string;
+          requestedScopes?: Array<string>;
+          resource: string;
+        },
+        any
+      >;
+    };
     stats: {
       games: {
         logMatch: FunctionReference<
@@ -112,6 +199,74 @@ export declare const api: {
     };
   };
   queries: {
+    chatgpt: {
+      getActiveSessionByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
+      getDailyStatsByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { date: string; discordId: string },
+        any
+      >;
+      getLastCompletedSessionByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
+      getMatchById: FunctionReference<
+        "query",
+        "public",
+        { discordId: string; matchId: string },
+        any
+      >;
+      getMatchesByDiscordIdPaginated: FunctionReference<
+        "query",
+        "public",
+        {
+          discordId: string;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+        },
+        any
+      >;
+      getRecentStatsByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string; limit: number },
+        any
+      >;
+      getStatsSummaryByDiscordId: FunctionReference<
+        "query",
+        "public",
+        { discordId: string },
+        any
+      >;
+      getUserByOAuthSubject: FunctionReference<
+        "query",
+        "public",
+        { sub: string },
+        any
+      >;
+    };
+    oauth: {
+      getClientByClientId: FunctionReference<
+        "query",
+        "public",
+        { clientId: string },
+        any
+      >;
+    };
     stats: {
       daily: {
         getDailyGamesForSession: FunctionReference<

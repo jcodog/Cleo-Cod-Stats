@@ -2,13 +2,13 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const chatgptAppConnections = defineTable({
-  userId: v.string(),
+  userId: v.id("users"),
+
+  status: v.union(v.literal("active"), v.literal("revoked")),
 
   scopes: v.array(v.string()),
 
-  accessTokenEnc: v.optional(v.string()),
-  refreshTokenEnc: v.optional(v.string()),
-  expiresAt: v.optional(v.number()),
+  linkedAt: v.number(),
 
   revokedAt: v.optional(v.number()),
   lastUsedAt: v.optional(v.number()),

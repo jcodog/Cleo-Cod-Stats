@@ -3,5 +3,6 @@
   "codegen": {
     "staticApi": true,
     "staticDataModel": true
-  }
+  },
+  "typescriptCompiler": "tsgo"
 }
