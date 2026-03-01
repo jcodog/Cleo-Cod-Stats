@@ -91,6 +91,7 @@ function createAuthSuccess(scopes = ["stats.read"]) {
 describe("proxy public route allowlist", () => {
   it("bypasses Clerk auth for all ChatGPT App endpoints", () => {
     const publicPaths = [
+      "/debug/chatgpt-app-config",
       "/mcp",
       "/.well-known/oauth-authorization-server",
       "/.well-known/oauth-protected-resource",

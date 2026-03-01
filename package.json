@@ -9,10 +9,12 @@
     "typecheck": "tsgo --project tsconfig.json --noEmit",
     "lint": "eslint",
     "test:app:api": "bun test \"src/app/api/app/__tests__/routes.test.mjs\"",
+    "test:app:debug": "bun test \"src/app/debug/__tests__/chatgpt-app-config.test.mjs\"",
     "test:app:oauth": "bun test \"src/app/oauth/__tests__\"",
     "test:app:mcp": "bun test \"src/lib/server/__tests__/chatgpt-app-mcp.test.mjs\"",
-    "test:app": "npm run test:app:api && npm run test:app:oauth && npm run test:app:mcp",
+    "test:app": "npm run test:app:api && npm run test:app:debug && npm run test:app:oauth && npm run test:app:mcp",
     "test:app:smoke": "node scripts/chatgpt-app-smoke.mjs",
+    "verify:chatgpt-app": "node scripts/verify-chatgpt-app.mjs",
     "convex:dev": "convex dev",
     "start:dev": "mprocs"
   },

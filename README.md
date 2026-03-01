@@ -204,6 +204,26 @@ curl -s https://<domain>/.well-known/oauth-protected-resource | jq '.authorizati
 
 Expected: `.issuer` and `.authorization_servers[0]` are exactly your configured `OAUTH_ISSUER`.
 
+### Preflight check before ChatGPT verifier
+
+Use these checks before clicking ChatGPT "Create app":
+
+1. Development diagnostics endpoint (disabled in production):
+
+```bash
+curl -s https://<domain>/debug/chatgpt-app-config | jq
+```
+
+Expected fields: `oauthIssuer`, `widgetDomain`, `widgetCsp`, `discoveryUrls`, `mcpUrl`.
+
+2. Automated preflight script:
+
+```bash
+npm run verify:chatgpt-app -- --base-url https://<domain>
+```
+
+The script prints `PASS`/`FAIL` lines for discovery metadata, MCP content-type safety, and widget `_meta.ui` readiness.
+
 ### Run locally
 
 1. Start your app with `npm run dev`.
@@ -229,6 +249,8 @@ Expected: `.issuer` and `.authorization_servers[0]` are exactly your configured 
   - `npm run test:app`
 - Run API route tests only:
   - `npm run test:app:api`
+- Run debug route tests only:
+  - `npm run test:app:debug`
 - Run OAuth endpoint tests only:
   - `npm run test:app:oauth`
 - Run MCP server/tool tests only:
