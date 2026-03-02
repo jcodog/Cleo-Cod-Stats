@@ -4,7 +4,7 @@ import {
   buildOAuthAbsoluteUrlFromIssuer,
   getOAuthServerConfig,
   getOAuthSupportedScopes,
-} from "../../../lib/server/oauth/config";
+} from "@/lib/server/oauth/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
