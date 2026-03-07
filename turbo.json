@@ -1,0 +1,90 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalEnv": [
+    "APP_PUBLIC_ORIGIN",
+    "CLERK_JWT_ISSUER_DOMAIN",
+    "CLERK_JWT_ISSUER_URL",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SECRET",
+    "CONVEX_DEPLOYMENT",
+    "LANDING_METRICS_API_KEY",
+    "LANDING_METRICS_REQUIRE_API_KEY",
+    "NEXT_PUBLIC_*",
+    "NODE_ENV",
+    "OAUTH_*",
+    "REDIS_URL",
+    "VERCEL",
+    "VERCEL_*"
+  ],
+  "tasks": {
+    "codegen": {
+      "env": [
+        "CLERK_JWT_ISSUER_DOMAIN",
+        "CLERK_JWT_ISSUER_URL",
+        "CLERK_WEBHOOK_SECRET",
+        "CONVEX_DEPLOYMENT",
+        "NODE_ENV",
+        "REDIS_URL"
+      ],
+      "dependsOn": ["^codegen"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
+    },
+    "deploy": {
+      "env": [
+        "CLERK_JWT_ISSUER_DOMAIN",
+        "CLERK_JWT_ISSUER_URL",
+        "CLERK_WEBHOOK_SECRET",
+        "CONVEX_DEPLOYMENT",
+        "NODE_ENV",
+        "REDIS_URL"
+      ],
+      "dependsOn": ["^deploy"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "APP_PUBLIC_ORIGIN",
+        "CLERK_JWT_ISSUER_DOMAIN",
+        "CLERK_JWT_ISSUER_URL",
+        "CLERK_SECRET_KEY",
+        "CLERK_WEBHOOK_SECRET",
+        "CONVEX_DEPLOYMENT",
+        "LANDING_METRICS_API_KEY",
+        "LANDING_METRICS_REQUIRE_API_KEY",
+        "NEXT_PUBLIC_*",
+        "NODE_ENV",
+        "OAUTH_*",
+        "REDIS_URL",
+        "VERCEL",
+        "VERCEL_*"
+      ]
+    },
+    "build": {
+      "env": [
+        "APP_PUBLIC_ORIGIN",
+        "CLERK_SECRET_KEY",
+        "LANDING_METRICS_API_KEY",
+        "LANDING_METRICS_REQUIRE_API_KEY",
+        "NEXT_PUBLIC_*",
+        "NODE_ENV",
+        "OAUTH_*",
+        "REDIS_URL"
+      ],
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "format": {
+      "dependsOn": ["^format"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    }
+  }
+}

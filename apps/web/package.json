@@ -1,0 +1,42 @@
+{
+  "name": "web",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "bun run test:api && bun run test:debug && bun run test:oauth && bun run test:mcp",
+    "test:api": "bun test \"app/api/(chatgpt-app-connector)/app/__tests__/routes.test.mjs\"",
+    "test:debug": "bun test \"app/(chatgpt-app-connector)/debug/__tests__/chatgpt-app-config.test.mjs\"",
+    "test:mcp": "bun test \"lib/server/__tests__/chatgpt-app-mcp.test.mjs\"",
+    "test:oauth": "bun test \"app/(chatgpt-app-connector)/oauth/__tests__\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.39.0",
+    "@clerk/themes": "^2.4.57",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@tabler/icons-react": "^3.40.0",
+    "@tanstack/react-query": "^5.90.21",
+    "@workspace/backend": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "convex": "^1.32.0",
+    "next": "16.1.6",
+    "next-themes": "^0.4.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.1.0",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3"
+  }
+}

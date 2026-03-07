@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+From the monorepo root, run the web app development server:
 
 ```bash
 npm run dev
@@ -11,19 +11,13 @@ yarn dev
 # or
 pnpm dev
 # or
-bun dev
+bun run dev
 ```
 
-As this project uses Convex, to properly test and develop re recommend the following dev server start script:
+Run Convex separately in another terminal:
 
 ```bash
-npm run start:dev
-# or
-yarn start:dev
-# or
-pnpm start:dev
-# or
-bun run start:dev
+bun run convex:dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
