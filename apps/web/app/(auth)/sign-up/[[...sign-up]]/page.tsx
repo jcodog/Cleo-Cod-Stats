@@ -1,11 +1,5 @@
-import { SignUp } from "@clerk/nextjs";
+import { SignUpView } from "@/features/auth/views/SignUpView"
 
-const SignUpPage = () => {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <SignUp />
-    </div>
-  );
-};
-
-export default SignUpPage;
+export default function SignUpPage() {
+  return <SignUpView />
+}

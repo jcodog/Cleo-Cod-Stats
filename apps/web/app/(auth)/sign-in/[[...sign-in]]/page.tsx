@@ -1,11 +1,5 @@
-import { SignIn } from "@clerk/nextjs";
+import { SignInView } from "@/features/auth/views/SignInView"
 
-const SignInPage = () => {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <SignIn />
-    </div>
-  );
-};
-
-export default SignInPage;
+export default function SignInPage() {
+  return <SignInView />
+}

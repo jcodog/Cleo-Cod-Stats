@@ -1,9 +1,9 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated } from "convex/react"
+import Link from "next/link"
 
-import { Button } from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button"
 
 export function NavbarAuthActions() {
   return (
@@ -23,5 +23,5 @@ export function NavbarAuthActions() {
         </Button>
       </Unauthenticated>
     </>
-  );
+  )
 }

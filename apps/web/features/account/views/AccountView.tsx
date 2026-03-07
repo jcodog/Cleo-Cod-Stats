@@ -1,11 +1,13 @@
 "use client"
-import { UserProfile } from "@clerk/nextjs";
-import { ChatGptAppSettingsSection } from "@/components/settings/chatgpt-app-settings-section";
-import { IconBrandOpenai } from "@tabler/icons-react";
 
-const AccountPage = () => {
+import { UserProfile } from "@clerk/nextjs"
+import { IconBrandOpenai } from "@tabler/icons-react"
+
+import { ChatGptAppSettingsSection } from "@/features/account/components/ChatGptAppSettingsSection"
+
+export function AccountView() {
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 items-start justify-center">
       <UserProfile path="/account" routing="path">
         <UserProfile.Page
           label="ChatGPT App"
@@ -16,7 +18,5 @@ const AccountPage = () => {
         </UserProfile.Page>
       </UserProfile>
     </div>
-  );
-};
-
-export default AccountPage;
+  )
+}
