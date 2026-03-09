@@ -18,6 +18,13 @@ export function StaffAccessState({
 }: {
   access: Extract<StaffAccessViewState, { ok: false }>
 }) {
+  const repairHint =
+    access.convexRole && !access.clerkRole
+      ? `Convex already reports ${access.convexRole}. Clerk public metadata still needs to match it.`
+      : access.convexRole && access.clerkRole && access.convexRole !== access.clerkRole
+        ? `Convex is ${access.convexRole}, while Clerk is ${access.clerkRole}. Clerk metadata needs to be synchronized.`
+        : null
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-6 py-12">
       <Card className="border-border/70">
@@ -35,6 +42,7 @@ export function StaffAccessState({
             <AlertDescription>
               Clerk and Convex must both present the same elevated role before
               this staff surface opens.
+              {repairHint ? ` ${repairHint}` : ""}
             </AlertDescription>
           </Alert>
 
@@ -68,4 +76,3 @@ export function StaffAccessState({
     </div>
   )
 }
-

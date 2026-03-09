@@ -3,9 +3,9 @@
 import type { Id } from "../_generated/dataModel"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
-import { getClerkBackendClient } from "./clerk"
+import { getClerkBackendClient, syncClerkPublicMetadataRole } from "./clerk"
 import {
-  parseUserRole,
+  getParsedUserRoleState,
   roleMeetsRequirement,
   type RequiredStaffRole,
   type UserRole,
@@ -20,12 +20,6 @@ export class StaffAuthorizationError extends Error {
     this.code = code
     this.status = status
   }
-}
-
-function getRoleFromPublicMetadata(
-  publicMetadata: Record<string, unknown> | null | undefined
-) {
-  return parseUserRole(publicMetadata?.role)
 }
 
 function getPrimaryEmail(clerkUser: {
@@ -74,14 +68,7 @@ export async function requireAuthorizedStaffAction(
   }
 
   const clerkUser = await getClerkBackendClient().users.getUser(identity.subject)
-  const clerkRole = getRoleFromPublicMetadata(clerkUser.publicMetadata)
-
-  if (!clerkRole) {
-    throw new StaffAuthorizationError(
-      "missing_clerk_role",
-      "Your Clerk public metadata role is missing or invalid. Staff access is denied until it is repaired."
-    )
-  }
+  const clerkRoleState = getParsedUserRoleState(clerkUser.publicMetadata?.role)
 
   const dbUser = await ctx.runQuery(
     internal.queries.staff.internal.getUserByClerkUserId,
@@ -97,16 +84,43 @@ export async function requireAuthorizedStaffAction(
     )
   }
 
-  const convexRole = parseUserRole(dbUser.role)
+  const convexRoleState = getParsedUserRoleState(dbUser.role)
+  const convexRole = convexRoleState.role
 
   if (!convexRole) {
     throw new StaffAuthorizationError(
-      "missing_convex_role",
+      convexRoleState.issue === "invalid"
+        ? "invalid_convex_role"
+        : "missing_convex_role",
       "Your Convex role is missing or invalid. Staff access is denied until it is repaired."
     )
   }
 
-  if (clerkRole !== convexRole) {
+  let resolvedClerkRole = clerkRoleState.role
+
+  if (resolvedClerkRole !== convexRole) {
+    try {
+      await syncClerkPublicMetadataRole({
+        clerkUserId: identity.subject,
+        currentPublicMetadata: clerkUser.publicMetadata,
+        role: convexRole,
+      })
+      resolvedClerkRole = convexRole
+    } catch {
+      resolvedClerkRole = clerkRoleState.role
+    }
+  }
+
+  if (!resolvedClerkRole) {
+    throw new StaffAuthorizationError(
+      clerkRoleState.issue === "invalid"
+        ? "invalid_clerk_role"
+        : "missing_clerk_role",
+      "Your Clerk public metadata role is missing or invalid. Staff access is denied until it is repaired."
+    )
+  }
+
+  if (resolvedClerkRole !== convexRole) {
     throw new StaffAuthorizationError(
       "role_mismatch",
       "Your Clerk role and Convex role do not match. Staff access is denied until they are synchronized."
@@ -128,4 +142,3 @@ export async function requireAuthorizedStaffAction(
     actorUserId: dbUser._id,
   }
 }
-

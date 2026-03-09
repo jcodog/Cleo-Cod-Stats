@@ -72,7 +72,9 @@ export const upsertFromClerk = internalMutation({
       patch.status = "active"
     }
 
-    if (publicMetadataRole && doc.role !== publicMetadataRole) {
+    // Convex owns role state after bootstrap. Clerk metadata is reconciled from
+    // Convex elsewhere, so webhook updates must not overwrite an existing role.
+    if (!doc.role && publicMetadataRole) {
       patch.role = publicMetadataRole
     }
 
@@ -136,7 +138,7 @@ export const updateFromClerk = internalMutation({
     if (existing.name !== name) patch.name = name
     if (existing.clerkUserId !== clerkUserId) patch.clerkUserId = clerkUserId
     if (existing.status !== "active") patch.status = "active"
-    if (publicMetadataRole && existing.role !== publicMetadataRole) {
+    if (!existing.role && publicMetadataRole) {
       patch.role = publicMetadataRole
     }
 

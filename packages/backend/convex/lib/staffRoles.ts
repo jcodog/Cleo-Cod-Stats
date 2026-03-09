@@ -17,9 +17,40 @@ export type BillingFeatureApplyMode = (typeof FEATURE_APPLY_MODES)[number]
 export const AUDIT_LOG_RESULTS = ["success", "warning", "error"] as const
 
 export type AuditLogResult = (typeof AUDIT_LOG_RESULTS)[number]
+export type ParsedRoleIssue = "invalid" | "missing"
 
 function normalizeStringValue(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : ""
+}
+
+export function getParsedUserRoleState(value: unknown): {
+  issue: ParsedRoleIssue | null
+  role: UserRole | null
+} {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim().length === 0)
+  ) {
+    return {
+      issue: "missing",
+      role: null,
+    }
+  }
+
+  const role = parseUserRole(value)
+
+  if (role) {
+    return {
+      issue: null,
+      role,
+    }
+  }
+
+  return {
+    issue: "invalid",
+    role: null,
+  }
 }
 
 export function parseUserRole(value: unknown): UserRole | null {
@@ -82,4 +113,3 @@ export function resolveBillingFeatureApplyMode(
 ): BillingFeatureApplyMode {
   return parseBillingFeatureApplyMode(value) ?? "both"
 }
-
