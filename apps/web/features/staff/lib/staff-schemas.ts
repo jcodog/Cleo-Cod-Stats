@@ -13,7 +13,6 @@ export const managementActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("updateUserRole"),
     input: z.object({
-      confirmSelfChange: z.boolean().optional(),
       nextRole: z.enum(["user", "staff", "admin"]),
       targetClerkUserId: z.string().min(1),
     }),

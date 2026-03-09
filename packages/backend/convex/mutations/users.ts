@@ -3,6 +3,7 @@ import { internalMutation, MutationCtx } from "../_generated/server"
 import type { UserJSON } from "@clerk/nextjs/server"
 import { DataModel } from "../_generated/dataModel"
 import { parseUserRole } from "../lib/staffRoles"
+import { resolveConfiguredUserRole } from "../lib/staffRoleConfig"
 
 export const upsertFromClerk = internalMutation({
   args: { data: v.any() as Validator<UserJSON> },
@@ -18,6 +19,10 @@ export const upsertFromClerk = internalMutation({
 
     const name = data.username ?? `Slayer ${discordId.slice(-4)}`
     const publicMetadataRole = parseUserRole(data.public_metadata?.role)
+    const desiredRole = resolveConfiguredUserRole({
+      discordId,
+      role: publicMetadataRole,
+    })
     const now = Date.now()
 
     const existingByClerk = await userByClerkUserId(ctx, clerkUserId)
@@ -43,7 +48,7 @@ export const upsertFromClerk = internalMutation({
         name,
         plan: "free",
         status: "active",
-        role: publicMetadataRole ?? "user",
+        role: desiredRole ?? "user",
         cleoDashLinked: false,
         chatgptLinked: false,
         chatgptLinkedAt: undefined,
@@ -72,10 +77,13 @@ export const upsertFromClerk = internalMutation({
       patch.status = "active"
     }
 
-    // Convex owns role state after bootstrap. Clerk metadata is reconciled from
-    // Convex elsewhere, so webhook updates must not overwrite an existing role.
-    if (!doc.role && publicMetadataRole) {
-      patch.role = publicMetadataRole
+    const nextRole = resolveConfiguredUserRole({
+      discordId,
+      role: doc.role ?? publicMetadataRole ?? null,
+    })
+
+    if (doc.role !== nextRole && nextRole) {
+      patch.role = nextRole
     }
 
     if (Object.keys(patch).length > 0) {
@@ -122,6 +130,10 @@ export const updateFromClerk = internalMutation({
 
     const name = data.username ?? `Slayer ${discordId.slice(-4)}`
     const publicMetadataRole = parseUserRole(data.public_metadata?.role)
+    const nextRole = resolveConfiguredUserRole({
+      discordId,
+      role: existing.role ?? publicMetadataRole ?? null,
+    })
     const now = Date.now()
 
     if (existing.discordId !== discordId) {
@@ -138,8 +150,8 @@ export const updateFromClerk = internalMutation({
     if (existing.name !== name) patch.name = name
     if (existing.clerkUserId !== clerkUserId) patch.clerkUserId = clerkUserId
     if (existing.status !== "active") patch.status = "active"
-    if (!existing.role && publicMetadataRole) {
-      patch.role = publicMetadataRole
+    if (existing.role !== nextRole && nextRole) {
+      patch.role = nextRole
     }
 
     if (Object.keys(patch).length > 0) {

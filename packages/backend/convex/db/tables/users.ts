@@ -10,7 +10,12 @@ export const users = defineTable({
   status: v.union(v.literal("active"), v.literal("disabled")),
 
   role: v.optional(
-    v.union(v.literal("user"), v.literal("admin"), v.literal("staff"))
+    v.union(
+      v.literal("user"),
+      v.literal("admin"),
+      v.literal("staff"),
+      v.literal("super_admin")
+    )
   ),
 
   cleoDashLinked: v.boolean(),

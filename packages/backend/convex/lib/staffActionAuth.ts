@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getClerkBackendClient, syncClerkPublicMetadataRole } from "./clerk"
+import { resolveConfiguredUserRole } from "./staffRoleConfig"
 import {
   getParsedUserRoleState,
   roleMeetsRequirement,
@@ -85,7 +86,10 @@ export async function requireAuthorizedStaffAction(
   }
 
   const convexRoleState = getParsedUserRoleState(dbUser.role)
-  const convexRole = convexRoleState.role
+  const convexRole = resolveConfiguredUserRole({
+    discordId: dbUser.discordId,
+    role: convexRoleState.role,
+  })
 
   if (!convexRole) {
     throw new StaffAuthorizationError(

@@ -5,7 +5,8 @@ import { v } from "convex/values"
 const roleValidator = v.union(
   v.literal("user"),
   v.literal("staff"),
-  v.literal("admin")
+  v.literal("admin"),
+  v.literal("super_admin")
 )
 
 const billingPlanTypeValidator = v.union(v.literal("free"), v.literal("paid"))

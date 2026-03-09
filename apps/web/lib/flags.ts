@@ -5,9 +5,10 @@ import { vercelAdapter } from "@flags-sdk/vercel"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { fetchQuery } from "convex/nextjs"
 import { api } from "@workspace/backend/convex/_generated/api"
+import type { UserRole } from "@workspace/backend/convex/lib/staffRoles"
 
 export type Plan = "free" | "premium" | "creator"
-export type Role = "user" | "staff" | "admin"
+export type Role = UserRole
 
 type FlagEntities = {
   user?: {

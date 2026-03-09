@@ -1,12 +1,17 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import {
   IconAlertTriangle,
   IconDotsVertical,
   IconShieldCheck,
 } from "@tabler/icons-react"
+import {
+  getAssignableRolesForActorRole,
+  isAdminCapableRole,
+  type AssignableUserRole,
+  type UserRole,
+} from "@workspace/backend/convex/lib/staffRoles"
 import type {
   StaffManagementDashboard,
   StaffManagementUserRecord,
@@ -70,8 +75,12 @@ function RoleBadge({
     return <Badge variant="outline">Missing</Badge>
   }
 
+  if (role === "super_admin") {
+    return <Badge>Super admin</Badge>
+  }
+
   if (role === "admin") {
-    return <Badge>Admin</Badge>
+    return <Badge variant="secondary">Admin</Badge>
   }
 
   if (role === "staff") {
@@ -89,7 +98,7 @@ function RoleStatusBadge({ user }: { user: StaffManagementUserRecord }) {
   return <Badge variant="destructive">Attention</Badge>
 }
 
-function buildRoleOptionLabel(role: "user" | "staff" | "admin") {
+function buildRoleOptionLabel(role: AssignableUserRole) {
   switch (role) {
     case "admin":
       return "Set as admin"
@@ -98,6 +107,33 @@ function buildRoleOptionLabel(role: "user" | "staff" | "admin") {
     case "user":
       return "Set as user"
   }
+}
+
+function hasAdminCapableRole(user: StaffManagementUserRecord) {
+  return (
+    isAdminCapableRole(user.clerkRole) ||
+    isAdminCapableRole(user.convexRole) ||
+    user.isReservedSuperAdmin
+  )
+}
+
+function getAllowedRoleOptions(args: {
+  actorRole: UserRole
+  user: StaffManagementUserRecord
+}) {
+  if (args.user.isCurrentUser || args.user.isReservedSuperAdmin || !args.user.hasConvexUser) {
+    return [] as readonly AssignableUserRole[]
+  }
+
+  if (args.actorRole === "super_admin") {
+    return getAssignableRolesForActorRole(args.actorRole)
+  }
+
+  if (args.actorRole === "admin" && !hasAdminCapableRole(args.user)) {
+    return getAssignableRolesForActorRole(args.actorRole)
+  }
+
+  return [] as readonly AssignableUserRole[]
 }
 
 function MetricCard({
@@ -124,17 +160,14 @@ export function StaffManagementView({
 }: {
   initialData: StaffManagementDashboard
 }) {
-  const router = useRouter()
   const { data } = useStaffManagementDashboard(initialData)
   const managementClient = useStaffManagementClient()
   const [pendingRoleChange, setPendingRoleChange] = useState<{
-    nextRole: "user" | "staff" | "admin"
+    nextRole: AssignableUserRole
     user: StaffManagementUserRecord
   } | null>(null)
-  const [confirmSelfChange, setConfirmSelfChange] = useState(false)
-  const [isRedirecting, startRedirect] = useTransition()
   const alignedAdminCount = data.users.filter(
-    (user) => user.clerkRole === "admin" && user.convexRole === "admin"
+    (user) => user.roleStatus === "matched" && isAdminCapableRole(user.convexRole)
   ).length
   const mutation = useStaffMutation<
     ManagementActionRequest,
@@ -150,7 +183,15 @@ export function StaffManagementView({
       accessorKey: "displayName",
       cell: ({ row }: { row: { original: StaffManagementUserRecord } }) => (
         <div className="flex flex-col gap-1">
-          <div className="font-medium">{row.original.displayName}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-medium">{row.original.displayName}</div>
+            {row.original.isCurrentUser ? (
+              <Badge variant="outline">Current session</Badge>
+            ) : null}
+            {row.original.isReservedSuperAdmin ? (
+              <Badge variant="outline">Reserved super-admin</Badge>
+            ) : null}
+          </div>
           <div className="text-xs text-muted-foreground">
             {row.original.email ?? row.original.clerkUserId}
           </div>
@@ -185,37 +226,49 @@ export function StaffManagementView({
     },
     {
       id: "actions",
-      cell: ({ row }: { row: { original: StaffManagementUserRecord } }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost">
-              <IconDotsVertical />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              {(["user", "staff", "admin"] as const).map((role) => (
-                <DropdownMenuItem
-                  disabled={
-                    !row.original.hasConvexUser ||
-                    mutation.isPending ||
-                    row.original.convexRole === role
-                  }
-                  key={role}
-                  onClick={() =>
-                    setPendingRoleChange({
-                      nextRole: role,
-                      user: row.original,
-                    })
-                  }
-                >
-                  {buildRoleOptionLabel(role)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }: { row: { original: StaffManagementUserRecord } }) => {
+        const allowedRoleOptions = getAllowedRoleOptions({
+          actorRole: data.currentActorRole,
+          user: row.original,
+        })
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                disabled={mutation.isPending || allowedRoleOptions.length === 0}
+                size="icon"
+                variant="ghost"
+              >
+                <IconDotsVertical />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                {allowedRoleOptions.map((role) => (
+                  <DropdownMenuItem
+                    disabled={mutation.isPending || row.original.convexRole === role}
+                    key={role}
+                    onClick={() =>
+                      setPendingRoleChange({
+                        nextRole: role,
+                        user: row.original,
+                      })
+                    }
+                  >
+                    {buildRoleOptionLabel(role)}
+                  </DropdownMenuItem>
+                ))}
+                {allowedRoleOptions.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No permitted role changes
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
       enableGlobalFilter: false,
       header: "",
     },
@@ -230,30 +283,14 @@ export function StaffManagementView({
       const result = await mutation.mutateAsync({
         action: "updateUserRole",
         input: {
-          confirmSelfChange,
           nextRole: pendingRoleChange.nextRole,
           targetClerkUserId: pendingRoleChange.user.clerkUserId,
         },
       })
 
       toast.success(result.summary)
-      const requiresRefresh = result.requiresSessionRefresh
-      const isSelf = pendingRoleChange.user.isCurrentUser
-      const nextRole = pendingRoleChange.nextRole
 
       setPendingRoleChange(null)
-      setConfirmSelfChange(false)
-
-      if (requiresRefresh && isSelf) {
-        startRedirect(() => {
-          if (nextRole !== "admin") {
-            router.replace("/dashboard")
-            return
-          }
-
-          router.refresh()
-        })
-      }
     } catch (error) {
       toast.error(
         error instanceof StaffClientError ? error.message : "Role update failed."
@@ -266,20 +303,24 @@ export function StaffManagementView({
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <IconShieldCheck />
-          Admin-only controls
+          {data.currentActorRole === "super_admin"
+            ? "Super-admin controls"
+            : "Admin controls"}
         </div>
         <h1 className="text-3xl font-semibold tracking-tight">
           Staff management
         </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Promote and demote staff safely, keep Clerk and Convex roles in sync,
-          and review an audit trail of every privileged role change.
+          Admins can manage user and staff access for non-admin accounts.
+          Super-admins can also grant and revoke admin. Reserved super-admin
+          accounts stay config-controlled and cannot be edited here.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Aligned admins" value={alignedAdminCount} />
-        <MetricCard label="Convex admins" value={data.adminCount} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Aligned operators" value={alignedAdminCount} />
+        <MetricCard label="Admins" value={data.adminCount} />
+        <MetricCard label="Super-admins" value={data.superAdminCount} />
         <MetricCard label="Elevated users" value={data.staffCount} />
       </div>
 
@@ -287,8 +328,8 @@ export function StaffManagementView({
         <CardHeader>
           <CardTitle>Directory</CardTitle>
           <CardDescription>
-            Search by name, email, or Clerk ID and review role alignment before
-            changing permissions.
+            Search by name, email, or Clerk ID. The menu only shows role
+            transitions that your current operator role is allowed to apply.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -357,7 +398,6 @@ export function StaffManagementView({
       <Dialog
         onOpenChange={(open) => {
           if (!open) {
-            setConfirmSelfChange(false)
             setPendingRoleChange(null)
           }
         }}
@@ -389,36 +429,33 @@ export function StaffManagementView({
                 </div>
               </Field>
 
-              {pendingRoleChange.user.isCurrentUser ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm text-amber-950 dark:text-amber-100">
-                  <div className="flex items-center gap-2 font-medium">
-                    <IconAlertTriangle />
-                    This change targets the current session
-                  </div>
-                  <p className="mt-2 text-sm/relaxed">
-                    Your current Clerk session may need a refresh after the role
-                    update completes.
-                  </p>
-                  <label className="mt-3 flex items-center gap-2 text-sm">
-                    <input
-                      checked={confirmSelfChange}
-                      className="size-4"
-                      onChange={(event) =>
-                        setConfirmSelfChange(event.target.checked)
-                      }
-                      type="checkbox"
-                    />
-                    Confirm that this self-role change is intentional
-                  </label>
+              {pendingRoleChange.nextRole === "admin" ? (
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-3 text-sm text-sky-100">
+                  Only super-admins can grant or revoke admin access.
                 </div>
               ) : null}
 
-              {pendingRoleChange.user.clerkRole === "admin" &&
-              pendingRoleChange.user.convexRole === "admin" &&
-              pendingRoleChange.nextRole !== "admin" &&
+              {pendingRoleChange.user.roleStatus === "matched" &&
+              isAdminCapableRole(pendingRoleChange.user.convexRole) &&
+              !isAdminCapableRole(pendingRoleChange.nextRole) &&
               alignedAdminCount <= 1 ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
-                  This is the last aligned admin. Promote another admin first.
+                  This is the last aligned admin-capable account. Promote
+                  another admin first.
+                </div>
+              ) : null}
+
+              {pendingRoleChange.user.isReservedSuperAdmin ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm text-amber-950 dark:text-amber-100">
+                  <div className="flex items-center gap-2 font-medium">
+                    <IconAlertTriangle />
+                    Reserved role
+                  </div>
+                  <p className="mt-2 text-sm/relaxed">
+                    This account is pinned as a super-admin by
+                    `SUPER_ADMIN_DISCORD_IDS` and should be changed in
+                    configuration instead of from the dashboard.
+                  </p>
                 </div>
               ) : null}
 
@@ -436,7 +473,6 @@ export function StaffManagementView({
           <DialogFooter>
             <Button
               onClick={() => {
-                setConfirmSelfChange(false)
                 setPendingRoleChange(null)
               }}
               variant="outline"
@@ -446,16 +482,10 @@ export function StaffManagementView({
             <Button
               disabled={
                 mutation.isPending ||
-                isRedirecting ||
                 Boolean(
-                  pendingRoleChange?.user.isCurrentUser &&
-                    pendingRoleChange.nextRole !== "admin" &&
-                    !confirmSelfChange
-                ) ||
-                Boolean(
-                  pendingRoleChange?.user.clerkRole === "admin" &&
-                    pendingRoleChange.user.convexRole === "admin" &&
-                    pendingRoleChange.nextRole !== "admin" &&
+                  pendingRoleChange?.user.roleStatus === "matched" &&
+                    isAdminCapableRole(pendingRoleChange.user.convexRole) &&
+                    !isAdminCapableRole(pendingRoleChange.nextRole) &&
                     alignedAdminCount <= 1
                 )
               }
@@ -463,7 +493,7 @@ export function StaffManagementView({
                 void confirmRoleChange()
               }}
             >
-              {mutation.isPending || isRedirecting ? "Saving..." : "Apply role"}
+              {mutation.isPending ? "Saving..." : "Apply role"}
             </Button>
           </DialogFooter>
         </DialogContent>

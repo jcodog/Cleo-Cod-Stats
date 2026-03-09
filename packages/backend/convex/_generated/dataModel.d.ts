@@ -621,7 +621,7 @@ export type DataModel = {
       action: string;
       actorClerkUserId: string;
       actorName: string;
-      actorRole: "user" | "staff" | "admin";
+      actorRole: "user" | "staff" | "admin" | "super_admin";
       createdAt: number;
       details?: string;
       entityId: string;
@@ -669,7 +669,7 @@ export type DataModel = {
       discordId: string;
       name: string;
       plan: "free" | "premium" | "creator";
-      role?: "user" | "admin" | "staff";
+      role?: "user" | "admin" | "staff" | "super_admin";
       status: "active" | "disabled";
       updatedAt: number;
       _id: Id<"users">;

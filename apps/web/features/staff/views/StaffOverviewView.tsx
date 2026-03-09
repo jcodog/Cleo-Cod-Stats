@@ -48,13 +48,13 @@ export function StaffOverviewView({
           <CardHeader>
             <CardTitle>Management</CardTitle>
             <CardDescription>
-              Review role alignment, promote admins, and audit privileged access.
+              Review role alignment, manage staff access, and audit privileged operations.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="text-sm text-muted-foreground">
               {management
-                ? `${management.users.length} tracked users, ${management.adminCount} local admins`
+                ? `${management.users.length} tracked users, ${management.adminCount} admins, ${management.superAdminCount} super-admins`
                 : "Admin access required"}
             </div>
             {management ? (
@@ -128,4 +128,3 @@ export function StaffOverviewView({
     </div>
   )
 }
-

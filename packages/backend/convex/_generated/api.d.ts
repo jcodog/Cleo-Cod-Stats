@@ -137,11 +137,7 @@ export declare const api: {
         updateUserRole: FunctionReference<
           "action",
           "public",
-          {
-            confirmSelfChange?: boolean;
-            nextRole: "user" | "staff" | "admin";
-            targetClerkUserId: string;
-          },
+          { nextRole: "user" | "staff" | "admin"; targetClerkUserId: string },
           any
         >;
       };
@@ -656,7 +652,7 @@ export declare const internal: {
             action: string;
             actorClerkUserId: string;
             actorName: string;
-            actorRole: "user" | "staff" | "admin";
+            actorRole: "user" | "staff" | "admin" | "super_admin";
             details?: string;
             entityId: string;
             entityLabel?: string;
@@ -687,7 +683,10 @@ export declare const internal: {
         setUserRole: FunctionReference<
           "mutation",
           "internal",
-          { clerkUserId: string; role: "user" | "staff" | "admin" },
+          {
+            clerkUserId: string;
+            role: "user" | "staff" | "admin" | "super_admin";
+          },
           any
         >;
         syncPlanFeatureAssignmentsForFeature: FunctionReference<

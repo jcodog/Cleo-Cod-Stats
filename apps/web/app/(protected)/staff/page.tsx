@@ -1,6 +1,7 @@
 import { fetchAction } from "convex/nextjs"
 
 import { api } from "@workspace/backend/convex/_generated/api"
+import { roleMeetsRequirement } from "@workspace/backend/convex/lib/staffRoles"
 import { StaffAccessState } from "@/features/staff/components/StaffAccessState"
 import { StaffOverviewView } from "@/features/staff/views/StaffOverviewView"
 import { requireStaffAccess } from "@/lib/server/staff-auth"
@@ -16,7 +17,7 @@ export default async function StaffOverviewPage() {
     fetchAction(api.actions.staff.billing.getDashboard, {}, {
       token: access.convexToken,
     }),
-    access.convexRole === "admin"
+    roleMeetsRequirement(access.convexRole, "admin")
       ? fetchAction(api.actions.staff.management.getDashboard, {}, {
           token: access.convexToken,
         })
@@ -25,4 +26,3 @@ export default async function StaffOverviewPage() {
 
   return <StaffOverviewView billing={billing} management={management} />
 }
-

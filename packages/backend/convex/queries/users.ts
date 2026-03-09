@@ -1,9 +1,24 @@
+import { resolveConfiguredUserRole } from "../lib/staffRoleConfig"
 import { query, QueryCtx } from "../_generated/server";
 
 export const current = query({
   args: {},
   handler: async (ctx) => {
-    return await getCurrentUser(ctx);
+    const user = await getCurrentUser(ctx)
+
+    if (!user) {
+      return null
+    }
+
+    const resolvedRole = resolveConfiguredUserRole({
+      discordId: user.discordId,
+      role: user.role ?? null,
+    })
+
+    return {
+      ...user,
+      role: resolvedRole ?? undefined,
+    }
   },
 });
 

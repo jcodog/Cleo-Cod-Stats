@@ -59,6 +59,7 @@ export type StaffManagementUserRecord = {
   displayName: string
   email?: string
   hasConvexUser: boolean
+  isReservedSuperAdmin: boolean
   isCurrentUser: boolean
   roleStatus:
     | "matched"
@@ -73,8 +74,10 @@ export type StaffManagementDashboard = {
   adminCount: number
   auditLogs: StaffAuditLogEntry[]
   currentActorClerkUserId: string
+  currentActorRole: UserRole
   generatedAt: number
   staffCount: number
+  superAdminCount: number
   users: StaffManagementUserRecord[]
 }
 

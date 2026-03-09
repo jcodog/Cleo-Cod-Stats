@@ -5,13 +5,20 @@ import { action } from "../../_generated/server"
 import { internal } from "../../_generated/api"
 import { getClerkBackendClient } from "../../lib/clerk"
 import { requireAuthorizedStaffAction } from "../../lib/staffActionAuth"
+import { isConfiguredSuperAdminDiscordId } from "../../lib/staffRoleConfig"
 import type {
   StaffAuditLogEntry,
   StaffManagementDashboard,
   StaffManagementUserRecord,
   StaffMutationResponse,
 } from "../../lib/staffTypes"
-import { parseUserRole, type UserRole } from "../../lib/staffRoles"
+import {
+  getAssignableRolesForActorRole,
+  isAdminCapableRole,
+  parseUserRole,
+  type AssignableUserRole,
+  type UserRole,
+} from "../../lib/staffRoles"
 
 type ClerkListUserRecord = Awaited<
   ReturnType<ReturnType<typeof getClerkBackendClient>["users"]["getUserList"]>
@@ -123,6 +130,7 @@ function buildManagementUsers(args: {
   currentActorClerkUserId: string
   convexUsers: Array<{
     clerkUserId: string
+    discordId: string
     name: string
     role?: UserRole
     status: "active" | "disabled"
@@ -157,6 +165,9 @@ function buildManagementUsers(args: {
       displayName,
       email: clerkUser ? getClerkEmail(clerkUser) : undefined,
       hasConvexUser: Boolean(convexUser),
+      isReservedSuperAdmin: convexUser
+        ? isConfiguredSuperAdminDiscordId(convexUser.discordId)
+        : false,
       isCurrentUser: clerkUserId === args.currentActorClerkUserId,
       roleStatus: getRoleStatus({ clerkRole, convexRole }),
       status: convexUser?.status ?? "unknown",
@@ -171,7 +182,7 @@ function buildManagementUsers(args: {
 }
 
 function buildRoleChangeDetails(args: {
-  nextRole: UserRole
+  nextRole: AssignableUserRole
   previousClerkRole: UserRole | null
   previousConvexRole: UserRole | null
 }) {
@@ -193,8 +204,36 @@ function buildRoleChangeDetails(args: {
 
 function countAlignedAdmins(users: StaffManagementUserRecord[]) {
   return users.filter(
-    (user) => user.clerkRole === "admin" && user.convexRole === "admin"
+    (user) =>
+      user.roleStatus === "matched" && isAdminCapableRole(user.convexRole)
   ).length
+}
+
+function hasAdminCapableRole(user: StaffManagementUserRecord) {
+  return (
+    isAdminCapableRole(user.clerkRole) ||
+    isAdminCapableRole(user.convexRole) ||
+    user.isReservedSuperAdmin
+  )
+}
+
+function getAllowedNextRoles(args: {
+  actorRole: UserRole
+  targetUser: StaffManagementUserRecord
+}) {
+  if (args.targetUser.isCurrentUser || args.targetUser.isReservedSuperAdmin) {
+    return [] as const
+  }
+
+  if (args.actorRole === "super_admin") {
+    return getAssignableRolesForActorRole(args.actorRole)
+  }
+
+  if (args.actorRole === "admin" && !hasAdminCapableRole(args.targetUser)) {
+    return getAssignableRolesForActorRole(args.actorRole)
+  }
+
+  return [] as const
 }
 
 export const getDashboard = action({
@@ -215,10 +254,12 @@ export const getDashboard = action({
       adminCount: users.filter((user) => user.convexRole === "admin").length,
       auditLogs: records.roleAuditLogs.map(mapAuditLogEntry),
       currentActorClerkUserId: operator.actorClerkUserId,
+      currentActorRole: operator.actorRole,
       generatedAt: Date.now(),
-      staffCount: users.filter(
-        (user) => user.convexRole === "staff" || user.convexRole === "admin"
-      ).length,
+      staffCount: users.filter((user) => user.convexRole && user.convexRole !== "user")
+        .length,
+      superAdminCount: users.filter((user) => user.convexRole === "super_admin")
+        .length,
       users,
     }
   },
@@ -226,7 +267,6 @@ export const getDashboard = action({
 
 export const updateUserRole = action({
   args: {
-    confirmSelfChange: v.optional(v.boolean()),
     nextRole: v.union(v.literal("user"), v.literal("staff"), v.literal("admin")),
     targetClerkUserId: v.string(),
   },
@@ -255,27 +295,40 @@ export const updateUserRole = action({
       )
     }
 
-    if (
-      targetUser.isCurrentUser &&
-      args.nextRole !== "admin" &&
-      !args.confirmSelfChange
-    ) {
+    if (targetUser.isCurrentUser) {
+      throw new Error("You cannot change your own role from the staff dashboard.")
+    }
+
+    if (targetUser.isReservedSuperAdmin) {
       throw new Error(
-        "Self-demotion requires explicit confirmation before the role can be changed."
+        "This account is a reserved super-admin from configuration and cannot be edited here."
+      )
+    }
+
+    const allowedNextRoles = getAllowedNextRoles({
+      actorRole: operator.actorRole,
+      targetUser,
+    })
+
+    if (!allowedNextRoles.includes(args.nextRole)) {
+      throw new Error(
+        operator.actorRole === "super_admin"
+          ? "Only non-reserved users can be assigned user, staff, or admin roles from this dashboard."
+          : "Admins can only manage non-admin users and assign user or staff roles."
       )
     }
 
     const alignedAdminCount = countAlignedAdmins(users)
     const targetIsAlignedAdmin =
-      targetUser.clerkRole === "admin" && targetUser.convexRole === "admin"
+      targetUser.roleStatus === "matched" && isAdminCapableRole(targetUser.convexRole)
 
     if (
       targetIsAlignedAdmin &&
-      args.nextRole !== "admin" &&
+      !isAdminCapableRole(args.nextRole) &&
       alignedAdminCount <= 1
     ) {
       throw new Error(
-        "The last aligned admin cannot be demoted. Assign another admin first."
+        "The last aligned admin-capable user cannot be demoted. Promote another admin first."
       )
     }
 
@@ -284,7 +337,6 @@ export const updateUserRole = action({
       targetUser.convexRole === args.nextRole
     ) {
       return {
-        requiresSessionRefresh: targetUser.isCurrentUser,
         summary: `${targetUser.displayName} is already set to ${args.nextRole}.`,
       }
     }
@@ -380,7 +432,6 @@ export const updateUserRole = action({
     })
 
     return {
-      requiresSessionRefresh: targetUser.isCurrentUser,
       summary: `Updated ${targetUser.displayName} to ${args.nextRole}.`,
     }
   },

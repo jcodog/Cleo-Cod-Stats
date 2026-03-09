@@ -1,9 +1,15 @@
-export const USER_ROLES = ["user", "staff", "admin"] as const
+export const USER_ROLES = ["user", "staff", "admin", "super_admin"] as const
 
-export const ELEVATED_ROLES = ["staff", "admin"] as const
+export const ASSIGNABLE_USER_ROLES = ["user", "staff", "admin"] as const
+
+export const ELEVATED_ROLES = ["staff", "admin", "super_admin"] as const
+
+export const ADMIN_CAPABLE_ROLES = ["admin", "super_admin"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
+export type AssignableUserRole = (typeof ASSIGNABLE_USER_ROLES)[number]
 export type StaffRole = (typeof ELEVATED_ROLES)[number]
+export type AdminCapableRole = (typeof ADMIN_CAPABLE_ROLES)[number]
 export type RequiredStaffRole = StaffRole
 
 export const FEATURE_APPLY_MODES = [
@@ -102,10 +108,30 @@ export function roleMeetsRequirement(
   requiredRole: RequiredStaffRole
 ) {
   if (requiredRole === "staff") {
-    return role === "staff" || role === "admin"
+    return role === "staff" || role === "admin" || role === "super_admin"
   }
 
-  return role === "admin"
+  return role === "admin" || role === "super_admin"
+}
+
+export function isAdminCapableRole(
+  role: UserRole | null
+): role is AdminCapableRole {
+  return role === "admin" || role === "super_admin"
+}
+
+export function getAssignableRolesForActorRole(
+  role: UserRole
+): readonly AssignableUserRole[] {
+  if (role === "super_admin") {
+    return ASSIGNABLE_USER_ROLES
+  }
+
+  if (role === "admin") {
+    return ["user", "staff"] as const
+  }
+
+  return []
 }
 
 export function resolveBillingFeatureApplyMode(

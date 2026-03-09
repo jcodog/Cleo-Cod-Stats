@@ -1,6 +1,7 @@
 import type { Doc } from "../../_generated/dataModel"
 import { internalQuery } from "../../_generated/server"
 import { v } from "convex/values"
+import { resolveConfiguredUserRole } from "../../lib/staffRoleConfig"
 
 type UserRecord = Doc<"users">
 type BillingPlanRecord = Doc<"billingPlans">
@@ -50,7 +51,17 @@ export const getManagementRecords = internalQuery({
 
     return {
       roleAuditLogs,
-      users: users.sort(sortUsers),
+      users: users.sort(sortUsers).map((user) => ({
+        clerkUserId: user.clerkUserId,
+        discordId: user.discordId,
+        name: user.name,
+        role:
+          resolveConfiguredUserRole({
+            discordId: user.discordId,
+            role: user.role ?? null,
+          }) ?? undefined,
+        status: user.status,
+      })),
     }
   },
 })
@@ -91,4 +102,3 @@ export const getBillingRecords = internalQuery({
     }
   },
 })
-
