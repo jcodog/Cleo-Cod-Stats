@@ -3,6 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google"
 
 import { cn } from "@workspace/ui/lib/utils"
 import "@workspace/ui/globals.css"
+import { Toaster } from "@workspace/ui/components/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ClerkProvider } from "@/components/providers/ClerkProvider"
 import ConvexClientProvider from "@/components/providers/ConvexProviderWithClerk"
@@ -38,7 +39,10 @@ export default function RootLayout({
         <ThemeProvider>
           <ClerkProvider>
             <ConvexClientProvider>
-              <TanstackQueryProvider>{children}</TanstackQueryProvider>
+              <TanstackQueryProvider>
+                {children}
+                <Toaster richColors position="top-right" />
+              </TanstackQueryProvider>
             </ConvexClientProvider>
           </ClerkProvider>
         </ThemeProvider>

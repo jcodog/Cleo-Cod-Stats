@@ -20,6 +20,114 @@ import type { GenericId as Id } from "convex/values";
  * ```
  */
 export declare const api: {
+  actions: {
+    staff: {
+      billing: {
+        archiveFeature: FunctionReference<
+          "action",
+          "public",
+          { confirmationToken: string; featureKey: string },
+          any
+        >;
+        archivePlan: FunctionReference<
+          "action",
+          "public",
+          {
+            cancelAtPeriodEnd: boolean;
+            confirmationToken: string;
+            planKey: string;
+          },
+          any
+        >;
+        getDashboard: FunctionReference<"action", "public", {}, any>;
+        previewFeatureArchive: FunctionReference<
+          "action",
+          "public",
+          { featureKey: string },
+          any
+        >;
+        previewFeatureAssignmentChange: FunctionReference<
+          "action",
+          "public",
+          { enabled: boolean; featureKey: string; planKey: string },
+          any
+        >;
+        previewPlanArchive: FunctionReference<
+          "action",
+          "public",
+          { planKey: string },
+          any
+        >;
+        previewPriceReplacement: FunctionReference<
+          "action",
+          "public",
+          { interval: "month" | "year"; planKey: string },
+          any
+        >;
+        replacePlanPrice: FunctionReference<
+          "action",
+          "public",
+          {
+            amount: number;
+            confirmationToken: string;
+            interval: "month" | "year";
+            planKey: string;
+          },
+          any
+        >;
+        runCatalogSync: FunctionReference<"action", "public", {}, any>;
+        setFeatureAssignment: FunctionReference<
+          "action",
+          "public",
+          { enabled: boolean; featureKey: string; planKey: string },
+          any
+        >;
+        upsertFeature: FunctionReference<
+          "action",
+          "public",
+          {
+            active: boolean;
+            appliesTo: "entitlement" | "marketing" | "both";
+            category?: string;
+            description: string;
+            key: string;
+            name: string;
+            sortOrder: number;
+          },
+          any
+        >;
+        upsertPlan: FunctionReference<
+          "action",
+          "public",
+          {
+            active: boolean;
+            currency: string;
+            description: string;
+            key: string;
+            monthlyPriceAmount: number;
+            name: string;
+            planType: "free" | "paid";
+            sortOrder: number;
+            yearlyPriceAmount: number;
+          },
+          any
+        >;
+      };
+      management: {
+        getDashboard: FunctionReference<"action", "public", {}, any>;
+        updateUserRole: FunctionReference<
+          "action",
+          "public",
+          {
+            confirmSelfChange?: boolean;
+            nextRole: "user" | "staff" | "admin";
+            targetClerkUserId: string;
+          },
+          any
+        >;
+      };
+    };
+  };
   migrations: {
     stats: {
       game: {
@@ -520,6 +628,103 @@ export declare const internal: {
         >;
       };
     };
+    staff: {
+      internal: {
+        insertAuditLog: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            action: string;
+            actorClerkUserId: string;
+            actorName: string;
+            actorRole: "user" | "staff" | "admin";
+            details?: string;
+            entityId: string;
+            entityLabel?: string;
+            entityType: string;
+            result: "success" | "warning" | "error";
+            summary: string;
+          },
+          any
+        >;
+        setFeatureActiveState: FunctionReference<
+          "mutation",
+          "internal",
+          { active: boolean; archivedAt?: number; featureKey: string },
+          any
+        >;
+        setPlanActiveState: FunctionReference<
+          "mutation",
+          "internal",
+          { active: boolean; archivedAt?: number; planKey: string },
+          any
+        >;
+        setPlanFeatureAssignment: FunctionReference<
+          "mutation",
+          "internal",
+          { enabled: boolean; featureKey: string; planKey: string },
+          any
+        >;
+        setUserRole: FunctionReference<
+          "mutation",
+          "internal",
+          { clerkUserId: string; role: "user" | "staff" | "admin" },
+          any
+        >;
+        updateSubscriptionsAfterCancel: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            updates: Array<{
+              cancelAtPeriodEnd: boolean;
+              canceledAt?: number;
+              currentPeriodEnd?: number;
+              status?:
+                | "incomplete"
+                | "trialing"
+                | "active"
+                | "past_due"
+                | "canceled"
+                | "unpaid"
+                | "paused"
+                | "incomplete_expired";
+              stripeSubscriptionId: string;
+            }>;
+          },
+          any
+        >;
+        upsertFeature: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            active: boolean;
+            appliesTo: "entitlement" | "marketing" | "both";
+            category?: string;
+            description: string;
+            key: string;
+            name: string;
+            sortOrder: number;
+          },
+          any
+        >;
+        upsertPlan: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            active: boolean;
+            currency: string;
+            description: string;
+            key: string;
+            monthlyPriceAmount: number;
+            name: string;
+            planType: "free" | "paid";
+            sortOrder: number;
+            yearlyPriceAmount: number;
+          },
+          any
+        >;
+      };
+    };
     stats: {
       landingMetrics: {
         rebuildLandingMetrics: FunctionReference<
@@ -563,6 +768,18 @@ export declare const internal: {
           any
         >;
         getPricingCatalog: FunctionReference<"query", "internal", {}, any>;
+      };
+    };
+    staff: {
+      internal: {
+        getBillingRecords: FunctionReference<"query", "internal", {}, any>;
+        getManagementRecords: FunctionReference<"query", "internal", {}, any>;
+        getUserByClerkUserId: FunctionReference<
+          "query",
+          "internal",
+          { clerkUserId: string },
+          any
+        >;
       };
     };
   };

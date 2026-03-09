@@ -3,6 +3,7 @@
 import Stripe from "stripe"
 import { internal } from "../../_generated/api"
 import { internalAction } from "../../_generated/server"
+import { resolveBillingFeatureApplyMode } from "../../lib/staffRoles"
 import { STRIPE_CATALOG_APP, getStripe } from "../../lib/stripe"
 import type {
   BillingCatalogPlan,
@@ -296,6 +297,16 @@ function featureMatchesCatalogName(
   )
 }
 
+function featureAppliesToMarketing(feature: BillingFeatureRecord) {
+  const appliesTo = resolveBillingFeatureApplyMode(feature.appliesTo)
+  return appliesTo === "marketing" || appliesTo === "both"
+}
+
+function featureAppliesToEntitlement(feature: BillingFeatureRecord) {
+  const appliesTo = resolveBillingFeatureApplyMode(feature.appliesTo)
+  return appliesTo === "entitlement" || appliesTo === "both"
+}
+
 function isSafeProductCandidate(
   product: Stripe.Product,
   plan: BillingPlanRecord
@@ -421,6 +432,10 @@ function buildMarketingFeatures(
   const seenFeatureNames = new Set<string>()
 
   for (const feature of plan.features) {
+    if (!featureAppliesToMarketing(feature)) {
+      continue
+    }
+
     const featureName = feature.name.trim()
     const normalizedFeatureName = normalizeText(featureName)
 
@@ -540,6 +555,7 @@ function getFeatureFieldChanges(
 function getPriceFieldChanges(
   price: Stripe.Price,
   args: {
+    desiredActive: boolean
     interval: BillingInterval
     planKey: string
   }
@@ -549,7 +565,7 @@ function getPriceFieldChanges(
   const desiredMetadata = priceMetadata(args.planKey, args.interval)
   const changes: string[] = []
 
-  if (!price.active) {
+  if (price.active !== args.desiredActive) {
     changes.push("active")
   }
 
@@ -569,11 +585,12 @@ function getPriceFieldChanges(
 }
 
 function buildPriceUpdateParams(args: {
+  desiredActive: boolean
   interval: BillingInterval
   planKey: string
 }): Stripe.PriceUpdateParams {
   return {
-    active: true,
+    active: args.desiredActive,
     lookup_key: getPriceLookupKey(args.planKey, args.interval),
     metadata: priceMetadata(args.planKey, args.interval),
     nickname: getPriceNickname(args.planKey, args.interval),
@@ -1121,6 +1138,7 @@ async function ensureRecurringPrice(params: {
   allowCreate: boolean
   amount: number
   currency: string
+  desiredActive: boolean
   existingPriceId?: string
   interval: BillingInterval
   planKey: string
@@ -1151,6 +1169,7 @@ async function ensureRecurringPrice(params: {
       })
     ) {
       const changes = getPriceFieldChanges(storedPrice, {
+        desiredActive: params.desiredActive,
         interval: params.interval,
         planKey: params.planKey,
       })
@@ -1175,6 +1194,7 @@ async function ensureRecurringPrice(params: {
       const updatedPrice = await params.stripe.prices.update(
         storedPrice.id,
         buildPriceUpdateParams({
+          desiredActive: params.desiredActive,
           interval: params.interval,
           planKey: params.planKey,
         })
@@ -1245,6 +1265,7 @@ async function ensureRecurringPrice(params: {
 
   if (exactMatch) {
     const changes = getPriceFieldChanges(exactMatch, {
+      desiredActive: params.desiredActive,
       interval: params.interval,
       planKey: params.planKey,
     })
@@ -1255,6 +1276,7 @@ async function ensureRecurringPrice(params: {
         : await params.stripe.prices.update(
             exactMatch.id,
             buildPriceUpdateParams({
+              desiredActive: params.desiredActive,
               interval: params.interval,
               planKey: params.planKey,
             })
@@ -1354,6 +1376,10 @@ async function syncProductFeatures(params: {
   const expectedFeatureIds = new Set<string>()
 
   for (const feature of params.plan.features) {
+    if (!featureAppliesToEntitlement(feature)) {
+      continue
+    }
+
     const stripeFeatureId = params.featureIdByKey.get(feature.key)
 
     if (!stripeFeatureId) {
@@ -1594,6 +1620,7 @@ export const syncCatalogToStripe = internalAction({
         allowCreate: plan.active,
         amount: plan.monthlyPriceAmount,
         currency: plan.currency,
+        desiredActive: plan.active,
         existingPriceId: plan.monthlyPriceId,
         interval: "month",
         planKey: plan.key,
@@ -1606,6 +1633,7 @@ export const syncCatalogToStripe = internalAction({
         allowCreate: plan.active,
         amount: plan.yearlyPriceAmount,
         currency: plan.currency,
+        desiredActive: plan.active,
         existingPriceId: plan.yearlyPriceId,
         interval: "year",
         planKey: plan.key,

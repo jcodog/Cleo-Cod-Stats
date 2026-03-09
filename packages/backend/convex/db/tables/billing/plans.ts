@@ -10,6 +10,7 @@ export const billingPlans = defineTable({
   sortOrder: v.number(),
 
   planType: v.union(v.literal("free"), v.literal("paid")),
+  archivedAt: v.optional(v.number()),
 
   stripeProductId: v.optional(v.string()),
 

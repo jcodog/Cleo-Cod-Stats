@@ -102,6 +102,8 @@ export type DataModel = {
   billingFeatures: {
     document: {
       active: boolean;
+      appliesTo?: "entitlement" | "marketing" | "both";
+      archivedAt?: number;
       category?: string;
       createdAt: number;
       description: string;
@@ -117,6 +119,8 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "active"
+      | "appliesTo"
+      | "archivedAt"
       | "category"
       | "createdAt"
       | "description"
@@ -165,6 +169,7 @@ export type DataModel = {
   billingPlans: {
     document: {
       active: boolean;
+      archivedAt?: number;
       createdAt: number;
       currency: string;
       description: string;
@@ -185,6 +190,7 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "active"
+      | "archivedAt"
       | "createdAt"
       | "currency"
       | "description"
@@ -606,6 +612,48 @@ export type DataModel = {
       by_user: ["userId", "_creationTime"];
       by_user_cod_season: ["userId", "codTitle", "season", "_creationTime"];
       by_uuid: ["uuid", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  staffAuditLogs: {
+    document: {
+      action: string;
+      actorClerkUserId: string;
+      actorName: string;
+      actorRole: "user" | "staff" | "admin";
+      createdAt: number;
+      details?: string;
+      entityId: string;
+      entityLabel?: string;
+      entityType: string;
+      result: "success" | "warning" | "error";
+      summary: string;
+      _id: Id<"staffAuditLogs">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "action"
+      | "actorClerkUserId"
+      | "actorName"
+      | "actorRole"
+      | "createdAt"
+      | "details"
+      | "entityId"
+      | "entityLabel"
+      | "entityType"
+      | "result"
+      | "summary";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_actorClerkUserId: ["actorClerkUserId", "_creationTime"];
+      by_createdAt: ["createdAt", "_creationTime"];
+      by_entityType: ["entityType", "_creationTime"];
+      by_entityType_createdAt: ["entityType", "createdAt", "_creationTime"];
+      by_entityType_entityId: ["entityType", "entityId", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};

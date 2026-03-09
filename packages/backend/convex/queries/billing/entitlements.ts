@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
 import { query, type QueryCtx } from "../../_generated/server"
+import { resolveBillingFeatureApplyMode } from "../../lib/staffRoles"
 
 type UserRecord = Doc<"users">
 type BillingFeatureRecord = Doc<"billingFeatures">
@@ -61,7 +62,7 @@ async function getEffectiveEntitlementKeys(
   const now = Date.now()
   const effectivePlanKey = await getEffectivePlanKey(ctx, user)
 
-  const [planMappings, entitlements] = await Promise.all([
+  const [planMappings, entitlements, features] = await Promise.all([
     ctx.db
       .query("billingPlanFeatures")
       .withIndex("by_planKey", (q) => q.eq("planKey", effectivePlanKey))
@@ -70,10 +71,23 @@ async function getEffectiveEntitlementKeys(
       .query("billingEntitlements")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .collect(),
+    ctx.db.query("billingFeatures").collect(),
   ])
+  const featureModeByKey = new Map(
+    features.map((feature) => [
+      feature.key,
+      resolveBillingFeatureApplyMode(feature.appliesTo),
+    ])
+  )
 
   const featureKeys = new Set(
-    planMappings.filter((mapping) => mapping.enabled).map((mapping) => mapping.featureKey)
+    planMappings
+      .filter(
+        (mapping) =>
+          mapping.enabled &&
+          featureModeByKey.get(mapping.featureKey) !== "marketing"
+      )
+      .map((mapping) => mapping.featureKey)
   )
 
   const overrides = entitlements
@@ -119,7 +133,12 @@ export const getCurrentUserEntitlements = query({
     ])
 
     return features
-      .filter((feature) => feature.active && featureKeys.has(feature.key))
+      .filter(
+        (feature) =>
+          feature.active &&
+          resolveBillingFeatureApplyMode(feature.appliesTo) !== "marketing" &&
+          featureKeys.has(feature.key)
+      )
       .sort(sortFeatures)
   },
 })
@@ -135,7 +154,17 @@ export const currentUserHasFeature = query({
       return false
     }
 
-    const featureKeys = await getEffectiveEntitlementKeys(ctx, user)
+    const [featureKeys, feature] = await Promise.all([
+      getEffectiveEntitlementKeys(ctx, user),
+      ctx.db
+        .query("billingFeatures")
+        .withIndex("by_key", (q) => q.eq("key", args.featureKey))
+        .unique(),
+    ])
+
+    if (!feature || resolveBillingFeatureApplyMode(feature.appliesTo) === "marketing") {
+      return false
+    }
 
     return featureKeys.has(args.featureKey)
   },

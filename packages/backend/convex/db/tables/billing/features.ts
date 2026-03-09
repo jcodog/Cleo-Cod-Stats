@@ -9,7 +9,11 @@ export const billingFeatures = defineTable({
   stripeFeatureId: v.optional(v.string()),
 
   category: v.optional(v.string()),
+  appliesTo: v.optional(
+    v.union(v.literal("entitlement"), v.literal("marketing"), v.literal("both"))
+  ),
   active: v.boolean(),
+  archivedAt: v.optional(v.number()),
   sortOrder: v.number(),
 
   createdAt: v.number(),

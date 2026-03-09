@@ -7,6 +7,7 @@ import {
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
+import { StaffNavLink } from "@/components/app-shell/StaffNavLink"
 
 type AppShellProps = {
   children: React.ReactNode
@@ -41,6 +42,7 @@ export function AppShell({ children }: AppShellProps) {
               <Button asChild size="sm" variant="ghost">
                 <Link href="/account">Account</Link>
               </Button>
+              <StaffNavLink />
             </nav>
           </div>
 
