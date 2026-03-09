@@ -1,6 +1,12 @@
 "use client"
 
-import { useState, type Dispatch, type SetStateAction } from "react"
+import {
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
   IconDotsVertical,
@@ -313,6 +319,7 @@ function MultiSelectCombobox(args: {
   onChange: (values: string[]) => void
   options: MultiSelectOption[]
   placeholder: string
+  portalContainer?: RefObject<HTMLElement | null>
   value: string[]
 }) {
   const anchorRef = useComboboxAnchor()
@@ -360,7 +367,7 @@ function MultiSelectCombobox(args: {
         ))}
         <ComboboxChipsInput className="min-w-24" placeholder={args.placeholder} />
       </ComboboxChips>
-      <ComboboxContent anchor={anchorRef}>
+      <ComboboxContent anchor={anchorRef} container={args.portalContainer}>
         <ComboboxList>
           <ComboboxEmpty>{args.emptyLabel}</ComboboxEmpty>
           <ComboboxCollection>
@@ -1471,6 +1478,7 @@ function PlanFormDialog(args: {
 }) {
   const pricesLocked =
     args.planForm?.mode === "edit" && args.planForm.planType === "paid"
+  const featurePickerContainerRef = useRef<HTMLDivElement | null>(null)
 
   return (
     <Dialog open={Boolean(args.planForm)} onOpenChange={(open) => !open && args.onClose()}>
@@ -1607,17 +1615,20 @@ function PlanFormDialog(args: {
             </div>
             <Field>
               <FieldLabel>Included features</FieldLabel>
-              <MultiSelectCombobox
-                emptyLabel="No active features match this search."
-                onChange={(values) =>
-                  args.setPlanForm((current) =>
-                    current ? { ...current, featureKeys: values } : current
-                  )
-                }
-                options={args.featureOptions}
-                placeholder="Search features"
-                value={args.planForm.featureKeys}
-              />
+              <div ref={featurePickerContainerRef}>
+                <MultiSelectCombobox
+                  emptyLabel="No active features match this search."
+                  onChange={(values) =>
+                    args.setPlanForm((current) =>
+                      current ? { ...current, featureKeys: values } : current
+                    )
+                  }
+                  options={args.featureOptions}
+                  placeholder="Search features"
+                  portalContainer={featurePickerContainerRef}
+                  value={args.planForm.featureKeys}
+                />
+              </div>
               <FieldDescription>
                 Removing a feature here detaches it from the plan. Existing plan edits show impact before saving.
               </FieldDescription>
