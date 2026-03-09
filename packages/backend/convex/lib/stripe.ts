@@ -1,8 +1,8 @@
 import Stripe from "stripe"
 
-const STRIPE_API_VERSION = "2026-02-25.clover" as const
+const STRIPE_API_VERSION: Stripe.LatestApiVersion = "2026-02-25.clover" as const
 
-export const STRIPE_CATALOG_APP = "cod-stats"
+export const STRIPE_CATALOG_APP = "cod-stats-tracker"
 
 let cachedStripe: Stripe | null = null
 let cachedSecretKey: string | null = null
