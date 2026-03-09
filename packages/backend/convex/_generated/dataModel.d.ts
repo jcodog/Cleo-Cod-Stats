@@ -59,6 +59,42 @@ export type DataModel = {
     searchIndexes: {};
     vectorIndexes: {};
   };
+  featureFlags: {
+    document: {
+      adminBypass: boolean;
+      allowlistUserIds: Array<string>;
+      creatorBypass: boolean;
+      enabled: boolean;
+      key: string;
+      premiumBypass: boolean;
+      rolloutPercent: number;
+      staffBypass: boolean;
+      syncedAt: number;
+      syncedFrom: string;
+      _id: Id<"featureFlags">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "adminBypass"
+      | "allowlistUserIds"
+      | "creatorBypass"
+      | "enabled"
+      | "key"
+      | "premiumBypass"
+      | "rolloutPercent"
+      | "staffBypass"
+      | "syncedAt"
+      | "syncedFrom";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   games: {
     document: {
       createdAt: number;
@@ -347,7 +383,8 @@ export type DataModel = {
       createdAt: number;
       discordId: string;
       name: string;
-      plan: "free" | "premium";
+      plan: "free" | "premium" | "creator";
+      role?: "user" | "admin" | "staff";
       status: "active" | "disabled";
       updatedAt: number;
       _id: Id<"users">;
@@ -365,6 +402,7 @@ export type DataModel = {
       | "discordId"
       | "name"
       | "plan"
+      | "role"
       | "status"
       | "updatedAt";
     indexes: {

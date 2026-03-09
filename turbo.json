@@ -15,7 +15,8 @@
     "OAUTH_*",
     "REDIS_URL",
     "VERCEL",
-    "VERCEL_*"
+    "VERCEL_*",
+    "FLAGS"
   ],
   "tasks": {
     "codegen": {
@@ -59,7 +60,8 @@
         "OAUTH_*",
         "REDIS_URL",
         "VERCEL",
-        "VERCEL_*"
+        "VERCEL_*",
+        "FLAGS"
       ]
     },
     "build": {
