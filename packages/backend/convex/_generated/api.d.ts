@@ -420,6 +420,11 @@ export declare const api: {
  */
 export declare const internal: {
   actions: {
+    featureFlags: {
+      sync: {
+        syncFromVercel: FunctionReference<"action", "internal", {}, any>;
+      };
+    };
     stats: {
       cache: {
         invalidateLandingMetricsCache: FunctionReference<
@@ -432,6 +437,27 @@ export declare const internal: {
     };
   };
   mutations: {
+    featureFlags: {
+      internal: {
+        upsertFromVercel: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            adminBypass: boolean;
+            allowlistUserIds: Array<string>;
+            creatorBypass: boolean;
+            enabled: boolean;
+            key: string;
+            premiumBypass: boolean;
+            rolloutPercent: number;
+            staffBypass: boolean;
+            syncedAt: number;
+            syncedFrom: string;
+          },
+          any
+        >;
+      };
+    };
     stats: {
       landingMetrics: {
         rebuildLandingMetrics: FunctionReference<
