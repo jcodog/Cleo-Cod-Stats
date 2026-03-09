@@ -64,9 +64,18 @@ function makeBooleanFlag(key: string, description?: string) {
 }
 
 export const flags = {
-  overlays: makeBooleanFlag("overlays"),
-  dashboardStatsEditor: makeBooleanFlag("dashboard-stats-editor"),
-  checkout: makeBooleanFlag("checkout"),
+  overlays: makeBooleanFlag(
+    "overlays",
+    "Enable the user to use the overlays configurator"
+  ),
+  dashboardStatsEditor: makeBooleanFlag(
+    "dashboard-stats-editor",
+    "Enables the user to be able to create a new session, end their session and log stats as well as tweak SR in case of SR loss returns and missed match logging"
+  ),
+  checkout: makeBooleanFlag(
+    "checkout",
+    "Enables the new checkout page for the user."
+  ),
 } as const
 
 export type AppFlagKey = keyof typeof flags
