@@ -74,7 +74,7 @@ export const flags = {
   ),
   checkout: makeBooleanFlag(
     "checkout",
-    "Enables the new checkout page for the user."
+    "Enables the new checkout page for the user"
   ),
 } as const
 
