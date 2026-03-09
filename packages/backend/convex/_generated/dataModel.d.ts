@@ -27,6 +27,241 @@ import type { GenericId } from "convex/values";
  */
 
 export type DataModel = {
+  billingCustomers: {
+    document: {
+      active: boolean;
+      clerkUserId: string;
+      createdAt: number;
+      email?: string;
+      stripeCustomerId: string;
+      updatedAt: number;
+      userId: Id<"users">;
+      _id: Id<"billingCustomers">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "active"
+      | "clerkUserId"
+      | "createdAt"
+      | "email"
+      | "stripeCustomerId"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_active: ["active", "_creationTime"];
+      by_clerkUserId: ["clerkUserId", "_creationTime"];
+      by_stripeCustomerId: ["stripeCustomerId", "_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingEntitlements: {
+    document: {
+      clerkUserId: string;
+      createdAt: number;
+      enabled: boolean;
+      endsAt?: number;
+      featureKey: string;
+      notes?: string;
+      source: "plan" | "manual" | "promo" | "creator_approval";
+      startsAt?: number;
+      updatedAt: number;
+      userId: Id<"users">;
+      _id: Id<"billingEntitlements">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "clerkUserId"
+      | "createdAt"
+      | "enabled"
+      | "endsAt"
+      | "featureKey"
+      | "notes"
+      | "source"
+      | "startsAt"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_clerkUserId: ["clerkUserId", "_creationTime"];
+      by_featureKey: ["featureKey", "_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+      by_userId_featureKey: ["userId", "featureKey", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingFeatures: {
+    document: {
+      active: boolean;
+      category?: string;
+      createdAt: number;
+      description: string;
+      key: string;
+      name: string;
+      sortOrder: number;
+      updatedAt: number;
+      _id: Id<"billingFeatures">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "active"
+      | "category"
+      | "createdAt"
+      | "description"
+      | "key"
+      | "name"
+      | "sortOrder"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_active: ["active", "_creationTime"];
+      by_key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingPlanFeatures: {
+    document: {
+      createdAt: number;
+      enabled: boolean;
+      featureKey: string;
+      planKey: string;
+      updatedAt: number;
+      _id: Id<"billingPlanFeatures">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "createdAt"
+      | "enabled"
+      | "featureKey"
+      | "planKey"
+      | "updatedAt";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_featureKey: ["featureKey", "_creationTime"];
+      by_planKey: ["planKey", "_creationTime"];
+      by_planKey_featureKey: ["planKey", "featureKey", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingPlans: {
+    document: {
+      active: boolean;
+      createdAt: number;
+      currency: string;
+      description: string;
+      key: string;
+      monthlyPriceAmount: number;
+      monthlyPriceId?: string;
+      name: string;
+      planType: "free" | "paid";
+      sortOrder: number;
+      stripeProductId?: string;
+      updatedAt: number;
+      yearlyPriceAmount: number;
+      yearlyPriceId?: string;
+      _id: Id<"billingPlans">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "active"
+      | "createdAt"
+      | "currency"
+      | "description"
+      | "key"
+      | "monthlyPriceAmount"
+      | "monthlyPriceId"
+      | "name"
+      | "planType"
+      | "sortOrder"
+      | "stripeProductId"
+      | "updatedAt"
+      | "yearlyPriceAmount"
+      | "yearlyPriceId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_active: ["active", "_creationTime"];
+      by_key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingSubscriptions: {
+    document: {
+      cancelAtPeriodEnd: boolean;
+      canceledAt?: number;
+      clerkUserId: string;
+      createdAt: number;
+      currentPeriodEnd?: number;
+      currentPeriodStart?: number;
+      interval: "month" | "year";
+      planKey: string;
+      status:
+        | "incomplete"
+        | "trialing"
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "unpaid"
+        | "paused"
+        | "incomplete_expired";
+      stripeCustomerId: string;
+      stripePriceId: string;
+      stripeProductId?: string;
+      stripeSubscriptionId: string;
+      updatedAt: number;
+      userId: Id<"users">;
+      _id: Id<"billingSubscriptions">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "cancelAtPeriodEnd"
+      | "canceledAt"
+      | "clerkUserId"
+      | "createdAt"
+      | "currentPeriodEnd"
+      | "currentPeriodStart"
+      | "interval"
+      | "planKey"
+      | "status"
+      | "stripeCustomerId"
+      | "stripePriceId"
+      | "stripeProductId"
+      | "stripeSubscriptionId"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_clerkUserId: ["clerkUserId", "_creationTime"];
+      by_stripeCustomerId: ["stripeCustomerId", "_creationTime"];
+      by_stripeSubscriptionId: ["stripeSubscriptionId", "_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
   chatgptAppConnections: {
     document: {
       createdAt: number;
