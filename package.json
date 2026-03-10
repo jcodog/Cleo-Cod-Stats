@@ -7,7 +7,7 @@
     "@workspace/typescript-config": "workspace:*",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "turbo": "^2.8.14",
+    "turbo": "^2.8.15",
     "typescript": "5.9.3"
   },
   "engines": {
