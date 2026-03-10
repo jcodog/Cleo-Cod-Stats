@@ -153,6 +153,37 @@ export type StaffBillingDashboard = {
   subscriptions: StaffSubscriptionImpactRow[]
 }
 
+export type StaffOverviewStatusCount = {
+  count: number
+  status: "active" | "past_due" | "paused" | "trialing"
+}
+
+export type StaffOverviewTimelinePoint = {
+  count: number
+  dayStart: number
+}
+
+export type StaffOverviewDashboard = {
+  actorRole: UserRole
+  activityTimeline: StaffOverviewTimelinePoint[]
+  cancelAtPeriodEndCount: number
+  counts: {
+    activeSubscriptions: number
+    adminUsers: number
+    attentionSubscriptions: number
+    billingFeatures: number
+    billingPlans: number
+    staffUsers: number
+    superAdminUsers: number
+    syncAttentionPlans: number
+    trackedUsers: number
+  }
+  generatedAt: number
+  lastSync: StaffBillingSyncSummary | null
+  recentActivity: StaffAuditLogEntry[]
+  subscriptionStatusCounts: StaffOverviewStatusCount[]
+}
+
 export type StaffImpactPreview = {
   confirmationToken?: string
   counts: {

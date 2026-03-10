@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ClerkProvider } from "@/components/providers/ClerkProvider"
 import ConvexClientProvider from "@/components/providers/ConvexProviderWithClerk"
 import { TanstackQueryProvider } from "@/components/providers/TanstackQueryProvider"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,18 +34,20 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn(inter.variable, fontMono.variable)}
+      className={cn( fontMono.variable, "font-sans", inter.variable)}
     >
       <body className="flex h-full min-h-screen w-full min-w-full flex-col antialiased">
         <ThemeProvider>
-          <ClerkProvider>
-            <ConvexClientProvider>
-              <TanstackQueryProvider>
-                {children}
-                <Toaster richColors position="top-right" closeButton />
-              </TanstackQueryProvider>
-            </ConvexClientProvider>
-          </ClerkProvider>
+          <TooltipProvider>
+            <ClerkProvider>
+              <ConvexClientProvider>
+                <TanstackQueryProvider>
+                  {children}
+                  <Toaster richColors position="top-right" closeButton />
+                </TanstackQueryProvider>
+              </ConvexClientProvider>
+            </ClerkProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -102,3 +102,36 @@ export const getBillingRecords = internalQuery({
     }
   },
 })
+
+export const getOverviewRecords = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const [users, plans, features, subscriptions, auditLogs] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("billingPlans").collect(),
+      ctx.db.query("billingFeatures").collect(),
+      ctx.db.query("billingSubscriptions").collect(),
+      ctx.db
+        .query("staffAuditLogs")
+        .withIndex("by_createdAt")
+        .order("desc")
+        .take(200),
+    ])
+
+    return {
+      auditLogs,
+      features: features.sort(sortBySortOrderAndKey),
+      plans: plans.sort(sortBySortOrderAndKey),
+      subscriptions: subscriptions.sort((left, right) => right.updatedAt - left.updatedAt),
+      users: users.sort(sortUsers).map((user) => ({
+        clerkUserId: user.clerkUserId,
+        role:
+          resolveConfiguredUserRole({
+            discordId: user.discordId,
+            role: user.role ?? null,
+          }) ?? undefined,
+        status: user.status,
+      })),
+    }
+  },
+})

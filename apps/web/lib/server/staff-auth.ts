@@ -1,5 +1,6 @@
 import "server-only"
 
+import { cache } from "react"
 import { auth, currentUser } from "@clerk/nextjs/server"
 import { fetchQuery } from "convex/nextjs"
 import { redirect } from "next/navigation"
@@ -94,9 +95,9 @@ function buildRestrictedContext(args: {
   }
 }
 
-async function getStaffAccessContext(
+const getStaffAccessContext = cache(async (
   requiredRole: RequiredStaffRole
-): Promise<AuthorizedStaffContext | RestrictedStaffContext> {
+): Promise<AuthorizedStaffContext | RestrictedStaffContext> => {
   const { userId, getToken } = await auth()
 
   if (!userId) {
@@ -222,7 +223,7 @@ async function getStaffAccessContext(
     ok: true,
     requiredRole,
   }
-}
+})
 
 export async function getAuthorizedStaffContext(requiredRole: RequiredStaffRole) {
   return getStaffAccessContext(requiredRole)

@@ -141,6 +141,9 @@ export declare const api: {
           any
         >;
       };
+      overview: {
+        getDashboard: FunctionReference<"action", "public", {}, any>;
+      };
     };
   };
   migrations: {
@@ -804,6 +807,7 @@ export declare const internal: {
       internal: {
         getBillingRecords: FunctionReference<"query", "internal", {}, any>;
         getManagementRecords: FunctionReference<"query", "internal", {}, any>;
+        getOverviewRecords: FunctionReference<"query", "internal", {}, any>;
         getUserByClerkUserId: FunctionReference<
           "query",
           "internal",

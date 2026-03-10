@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { IconShieldLock } from "@tabler/icons-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { getAuthorizedStaffContext } from "@/lib/server/staff-auth"
@@ -11,8 +12,11 @@ export async function StaffNavLink() {
   }
 
   return (
-    <Button asChild size="sm" variant="ghost">
-      <Link href="/staff">Staff</Link>
+    <Button asChild size="sm" variant="outline">
+      <Link href="/staff">
+        <IconShieldLock aria-hidden="true" data-icon="inline-start" />
+        Staff Console
+      </Link>
     </Button>
   )
 }

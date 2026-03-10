@@ -42,15 +42,17 @@ export function AppShell({ children }: AppShellProps) {
               <Button asChild size="sm" variant="ghost">
                 <Link href="/account">Account</Link>
               </Button>
-              <StaffNavLink />
             </nav>
           </div>
 
-          <UserButton
-            showName
-            userProfileMode="navigation"
-            userProfileUrl="/account"
-          />
+          <div className="flex items-center gap-2">
+            <StaffNavLink />
+            <UserButton
+              showName
+              userProfileMode="navigation"
+              userProfileUrl="/account"
+            />
+          </div>
         </div>
       </header>
 
