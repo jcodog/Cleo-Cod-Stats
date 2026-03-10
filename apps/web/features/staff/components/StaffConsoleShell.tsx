@@ -16,7 +16,7 @@ export function StaffConsoleShell({
   role: UserRole
 }) {
   return (
-    <SidebarProvider className="bg-muted/20">
+    <SidebarProvider className="h-svh overflow-hidden bg-muted/20">
       <a
         href="#staff-console-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring"
@@ -24,15 +24,15 @@ export function StaffConsoleShell({
         Skip to content
       </a>
       <StaffConsoleSidebar role={role} />
-      <SidebarInset className="min-h-svh overflow-x-hidden bg-background">
+      <SidebarInset className="min-h-0 overflow-hidden bg-background">
         <StaffConsoleHeader />
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6 md:py-8 lg:px-8">
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6 md:py-8 lg:px-8">
           <main
-            className="mx-auto flex w-full max-w-[1400px] min-w-0 flex-1 flex-col"
+            className="mx-auto flex min-h-0 w-full max-w-[1400px] min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain supports-[scrollbar-gutter:stable]:[scrollbar-gutter:stable] lg:pr-1"
             id="staff-console-content"
             tabIndex={-1}
           >
-            {children}
+            <div className="flex min-h-full flex-col">{children}</div>
           </main>
         </div>
       </SidebarInset>

@@ -1,5 +1,6 @@
 "use client"
 
+import { Fragment } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { IconArrowBack } from "@tabler/icons-react"
@@ -27,7 +28,11 @@ import {
   STAFF_CONSOLE_TITLE,
 } from "@/features/staff/lib/staff-navigation"
 
-function StaffConsoleBreadcrumb({ currentLabel }: { currentLabel: string }) {
+function StaffConsoleBreadcrumb({
+  items,
+}: {
+  items: ReturnType<typeof resolveStaffRoute>["breadcrumbs"]
+}) {
   return (
     <Breadcrumb>
       <BreadcrumbList>
@@ -36,10 +41,24 @@ function StaffConsoleBreadcrumb({ currentLabel }: { currentLabel: string }) {
             <Link href="/staff">{STAFF_CONSOLE_TITLE}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
-        </BreadcrumbItem>
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1
+
+          return (
+            <Fragment key={`${item.href ?? item.label}-${index}`}>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                {isLast || !item.href ? (
+                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <Link href={item.href}>{item.label}</Link>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
+          )
+        })}
       </BreadcrumbList>
     </Breadcrumb>
   )
@@ -68,7 +87,7 @@ export function StaffConsoleHeader() {
           </Link>
           <Separator className="hidden h-5 md:block" orientation="vertical" />
           <div className="hidden min-w-0 md:block">
-            <StaffConsoleBreadcrumb currentLabel={currentRoute.label} />
+            <StaffConsoleBreadcrumb items={currentRoute.breadcrumbs} />
           </div>
         </div>
 
@@ -85,7 +104,7 @@ export function StaffConsoleHeader() {
       </div>
 
       <div className="border-t border-border/50 px-4 py-2 md:hidden">
-        <StaffConsoleBreadcrumb currentLabel={currentRoute.label} />
+        <StaffConsoleBreadcrumb items={currentRoute.breadcrumbs} />
       </div>
     </header>
   )

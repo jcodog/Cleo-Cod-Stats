@@ -65,10 +65,10 @@ import type { ManagementActionRequest } from "@/features/staff/lib/staff-schemas
 
 function DirectoryBadge({
   children,
-  variant = "muted",
+  variant = "secondary",
 }: {
   children: ReactNode
-  variant?: "destructive" | "muted" | "outline"
+  variant?: "destructive" | "outline" | "secondary"
 }) {
   return (
     <Badge

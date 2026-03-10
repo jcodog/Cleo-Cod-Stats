@@ -135,6 +135,19 @@ export type StaffBillingAssignmentRecord = {
   planKey: string
 }
 
+export type StaffBillingCustomerRecord = {
+  active: boolean
+  activeSubscriptionCount: number
+  clerkUserId: string
+  createdAt: number
+  email?: string
+  planKeys: string[]
+  stripeCustomerId: string
+  subscriptionCount: number
+  updatedAt: number
+  userName: string
+}
+
 export type StaffBillingSyncSummary = {
   result: AuditLogResult
   summary: string
@@ -144,8 +157,10 @@ export type StaffBillingSyncSummary = {
 
 export type StaffBillingDashboard = {
   activeSubscriptionCount: number
+  activeCustomerCount: number
   assignments: StaffBillingAssignmentRecord[]
   auditLogs: StaffAuditLogEntry[]
+  customers: StaffBillingCustomerRecord[]
   features: StaffBillingFeatureRecord[]
   generatedAt: number
   lastSync: StaffBillingSyncSummary | null

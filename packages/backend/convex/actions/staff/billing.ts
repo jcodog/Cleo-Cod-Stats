@@ -7,6 +7,7 @@ import { requireAuthorizedStaffAction } from "../../lib/staffActionAuth"
 import { resolveBillingFeatureApplyMode, type UserRole } from "../../lib/staffRoles"
 import type {
   StaffAuditLogEntry,
+  StaffBillingCustomerRecord,
   StaffBillingDashboard,
   StaffBillingFeatureRecord,
   StaffBillingPlanRecord,
@@ -214,6 +215,7 @@ function getPlanKeyDelta(args: {
 
 function buildSubscriptionRows(args: {
   customers: Array<{
+    active: boolean
     clerkUserId: string
     email?: string
   }>
@@ -258,6 +260,67 @@ function buildSubscriptionRows(args: {
         userName: user?.name ?? subscription.clerkUserId,
       }
     })
+}
+
+function buildCustomerRows(args: {
+  customers: Array<{
+    active: boolean
+    clerkUserId: string
+    createdAt: number
+    email?: string
+    stripeCustomerId: string
+    updatedAt: number
+  }>
+  subscriptions: Array<{
+    clerkUserId: string
+    planKey: string
+    status: string
+  }>
+  users: Array<{
+    clerkUserId: string
+    name: string
+  }>
+}) {
+  const usersByClerkUserId = new Map(
+    args.users.map((user) => [user.clerkUserId, user])
+  )
+  const subscriptionsByClerkUserId = new Map<
+    string,
+    Array<(typeof args.subscriptions)[number]>
+  >()
+
+  for (const subscription of args.subscriptions) {
+    const customerSubscriptions =
+      subscriptionsByClerkUserId.get(subscription.clerkUserId) ?? []
+    customerSubscriptions.push(subscription)
+    subscriptionsByClerkUserId.set(subscription.clerkUserId, customerSubscriptions)
+  }
+
+  return args.customers
+    .map<StaffBillingCustomerRecord>((customer) => {
+      const user = usersByClerkUserId.get(customer.clerkUserId)
+      const customerSubscriptions =
+        subscriptionsByClerkUserId.get(customer.clerkUserId) ?? []
+      const activeSubscriptionCount = customerSubscriptions.filter((subscription) =>
+        isImpactStatus(subscription.status)
+      ).length
+
+      return {
+        active: customer.active,
+        activeSubscriptionCount,
+        clerkUserId: customer.clerkUserId,
+        createdAt: customer.createdAt,
+        email: customer.email,
+        planKeys: Array.from(
+          new Set(customerSubscriptions.map((subscription) => subscription.planKey))
+        ).sort((left, right) => left.localeCompare(right)),
+        stripeCustomerId: customer.stripeCustomerId,
+        subscriptionCount: customerSubscriptions.length,
+        updatedAt: customer.updatedAt,
+        userName: user?.name ?? customer.clerkUserId,
+      }
+    })
+    .sort((left, right) => left.userName.localeCompare(right.userName))
 }
 
 async function recordAuditLog(args: {
@@ -399,8 +462,12 @@ function buildBillingDashboard(args: {
     summary: string
   }>
   customers: Array<{
+    active: boolean
     clerkUserId: string
+    createdAt: number
     email?: string
+    stripeCustomerId: string
+    updatedAt: number
   }>
   features: Array<{
     active: boolean
@@ -453,6 +520,11 @@ function buildBillingDashboard(args: {
 }) {
   const assignments = uniqueAssignments(args.planFeatures)
   const subscriptionRows = buildSubscriptionRows({
+    customers: args.customers,
+    subscriptions: args.subscriptions,
+    users: args.users,
+  })
+  const customerRows = buildCustomerRows({
     customers: args.customers,
     subscriptions: args.subscriptions,
     users: args.users,
@@ -537,12 +609,14 @@ function buildBillingDashboard(args: {
 
   return {
     activeSubscriptionCount: subscriptionRows.length,
+    activeCustomerCount: customerRows.filter((customer) => customer.active).length,
     assignments: assignments.map((assignment) => ({
       enabled: assignment.enabled,
       featureKey: assignment.featureKey,
       planKey: assignment.planKey,
     })),
     auditLogs: args.auditLogs.slice(0, 60).map(mapAuditLogEntry),
+    customers: customerRows,
     features,
     generatedAt: Date.now(),
     lastSync:

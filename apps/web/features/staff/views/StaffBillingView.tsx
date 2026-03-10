@@ -1,10 +1,8 @@
 "use client"
 
 import {
-  useRef,
   useState,
   type Dispatch,
-  type RefObject,
   type SetStateAction,
 } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -14,6 +12,7 @@ import {
 } from "@tabler/icons-react"
 import type {
   StaffBillingDashboard,
+  StaffBillingCustomerRecord,
   StaffBillingFeatureRecord,
   StaffBillingPlanRecord,
   StaffImpactPreview,
@@ -74,16 +73,14 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "sonner"
 
 import { StaffDataTable } from "@/features/staff/components/StaffDataTable"
+import {
+  getStaffBillingSectionConfig,
+  type StaffBillingSection,
+} from "@/features/staff/lib/staff-billing-sections"
 import type { BillingActionRequest } from "@/features/staff/lib/staff-schemas"
 import {
   StaffClientError,
@@ -173,6 +170,13 @@ function formatCurrencyAmount(amount: number, currency: string) {
   }).format(amount / 100)
 }
 
+function formatDateTime(value: number) {
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value)
+}
+
 function normalizeKeys(values: string[]) {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
 }
@@ -212,6 +216,38 @@ function SyncStatusBadge({ status }: { status: StaffBillingPlanRecord["syncStatu
   }
 
   return <Badge variant="outline">App only</Badge>
+}
+
+function BillingAuditResultBadge({
+  result,
+}: {
+  result: "error" | "success" | "warning"
+}) {
+  if (result === "success") {
+    return <Badge variant="secondary">success</Badge>
+  }
+
+  if (result === "warning") {
+    return <Badge variant="outline">warning</Badge>
+  }
+
+  return <Badge variant="destructive">error</Badge>
+}
+
+function BillingSubscriptionStatusBadge({ status }: { status: string }) {
+  if (status === "active" || status === "trialing") {
+    return <Badge variant="secondary">{status}</Badge>
+  }
+
+  if (status === "past_due") {
+    return <Badge variant="destructive">past due</Badge>
+  }
+
+  if (status === "paused") {
+    return <Badge variant="outline">paused</Badge>
+  }
+
+  return <Badge variant="outline">{status}</Badge>
 }
 
 function MetricCard({
@@ -318,7 +354,6 @@ function MultiSelectCombobox(args: {
   onChange: (values: string[]) => void
   options: MultiSelectOption[]
   placeholder: string
-  portalContainer?: RefObject<HTMLElement | null>
   value: string[]
 }) {
   const anchorRef = useComboboxAnchor()
@@ -366,7 +401,7 @@ function MultiSelectCombobox(args: {
         ))}
         <ComboboxChipsInput className="min-w-24" placeholder={args.placeholder} />
       </ComboboxChips>
-      <ComboboxContent anchor={anchorRef} container={args.portalContainer}>
+      <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
           <ComboboxEmpty>{args.emptyLabel}</ComboboxEmpty>
           <ComboboxCollection>
@@ -396,10 +431,13 @@ function MultiSelectCombobox(args: {
 
 export function StaffBillingView({
   initialData,
+  section,
 }: {
   initialData: StaffBillingDashboard
+  section: StaffBillingSection
 }) {
   const { data } = useStaffBillingDashboard(initialData)
+  const sectionConfig = getStaffBillingSectionConfig(section)
   const billingClient = useStaffBillingClient()
   const [planForm, setPlanForm] = useState<PlanFormState | null>(null)
   const [featureForm, setFeatureForm] = useState<FeatureFormState | null>(null)
@@ -677,6 +715,89 @@ export function StaffBillingView({
       id: "actions",
     },
   ]
+  const customerColumns: Array<ColumnDef<StaffBillingCustomerRecord>> = [
+    {
+      accessorKey: "userName",
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">{row.original.userName}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.email ?? row.original.clerkUserId}
+          </span>
+        </div>
+      ),
+      header: "Customer",
+    },
+    {
+      accessorKey: "active",
+      cell: ({ getValue }) => (
+        <Badge variant={getValue<boolean>() ? "secondary" : "outline"}>
+          {getValue<boolean>() ? "Active" : "Inactive"}
+        </Badge>
+      ),
+      header: "Status",
+    },
+    {
+      accessorKey: "planKeys",
+      cell: ({ getValue }) =>
+        getValue<string[]>().length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {getValue<string[]>().map((planKey) => (
+              <Badge key={planKey} variant="outline">
+                {planLabelByKey.get(planKey) ?? planKey}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">No live plan coverage</span>
+        ),
+      header: "Plans",
+    },
+    {
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">
+            {row.original.activeSubscriptionCount} active
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.subscriptionCount} total records
+          </span>
+        </div>
+      ),
+      header: "Subscriptions",
+      id: "subscriptions",
+    },
+    {
+      accessorKey: "stripeCustomerId",
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground">
+          {getValue<string>()}
+        </span>
+      ),
+      header: "Stripe customer",
+    },
+  ]
+  const activeCustomerCount = data.activeCustomerCount
+  const syncAttentionPlanCount = data.plans.filter(
+    (plan) => plan.syncStatus === "attention"
+  ).length
+  const archivedPlanCount = data.plans.filter((plan) => !plan.active).length
+  const archivedFeatureCount = data.features.filter((feature) => !feature.active).length
+  const subscriptionAttentionCount = data.subscriptions.filter(
+    (subscription) => subscription.status === "past_due" || subscription.status === "paused"
+  ).length
+  const activeOrTrialingSubscriptionCount = data.subscriptions.filter(
+    (subscription) =>
+      subscription.status === "active" || subscription.status === "trialing"
+  ).length
+  const cancelAtPeriodEndCount = data.subscriptions.filter(
+    (subscription) => subscription.cancelAtPeriodEnd
+  ).length
+  const recentSyncLogs = data.auditLogs
+    .filter((log) => log.action === "billing.catalog.sync")
+    .slice(0, 6)
+  const recentBillingActivity = data.auditLogs.slice(0, 8)
+  const recentSubscriptionRows = data.subscriptions.slice(0, 8)
 
   async function handleMutationResult(result: StaffMutationResponse) {
     toast.success(result.summary)
@@ -942,33 +1063,292 @@ export function StaffBillingView({
   return (
     <div className="flex flex-1 flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Billing operations</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {sectionConfig.title}
+        </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Edit the Convex billing catalog, preview operational impact, and keep
-          Stripe synchronized without hidden destructive changes.
+          {sectionConfig.description}
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Plans" value={data.plans.length} />
         <MetricCard label="Features" value={data.features.length} />
+        <MetricCard label="Customers" value={data.customers.length} />
         <MetricCard label="Active subscriptions" value={data.activeSubscriptionCount} />
         <MetricCard
           label="Last sync"
-          value={data.lastSync ? data.lastSync.result : "never"}
+          value={data.lastSync ? data.lastSync.result : "Never"}
         />
       </div>
 
-      <Tabs className="gap-6" defaultValue="plans">
-        <TabsList variant="line">
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="operations">Operations</TabsTrigger>
-          <TabsTrigger value="audit">Audit</TabsTrigger>
-        </TabsList>
+      {section === "catalog-overview" ? (
+        <div className="grid gap-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle>Catalog posture</CardTitle>
+                <CardDescription>
+                  Current plan and feature coverage, plus the sync issues that
+                  still need follow-up.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Active plans</span>
+                  <span className="font-medium">
+                    {data.plans.length - archivedPlanCount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Archived plans</span>
+                  <span className="font-medium">{archivedPlanCount}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Active features</span>
+                  <span className="font-medium">
+                    {data.features.length - archivedFeatureCount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Archived features</span>
+                  <span className="font-medium">{archivedFeatureCount}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Plans needing sync attention
+                  </span>
+                  <span className="font-medium">{syncAttentionPlanCount}</span>
+                </div>
+              </CardContent>
+            </Card>
 
-        <TabsContent value="plans">
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle>Sync posture</CardTitle>
+                <CardDescription>
+                  Current Stripe synchronization state and the catalog events
+                  that need follow-up.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Last sync result</span>
+                  <span className="font-medium">
+                    {data.lastSync ? data.lastSync.result : "Never"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Last synced</span>
+                  <span className="font-medium">
+                    {data.lastSync ? formatDateTime(data.lastSync.syncedAt) : "Never"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Warnings</span>
+                  <span className="font-medium">
+                    {data.lastSync?.warningCount ?? 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Recent sync records</span>
+                  <span className="font-medium">{recentSyncLogs.length}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Recent billing events
+                  </span>
+                  <span className="font-medium">{recentBillingActivity.length}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Recent billing activity</CardTitle>
+              <CardDescription>
+                Latest catalog edits, assignment changes, and manual sync
+                events recorded by staff tooling.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="rounded-lg border border-border/70 p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Summary</TableHead>
+                    <TableHead>Result</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentBillingActivity.length > 0 ? (
+                    recentBillingActivity.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(log.createdAt)}
+                        </TableCell>
+                        <TableCell>{log.action}</TableCell>
+                        <TableCell className="max-w-xl whitespace-normal">
+                          {log.summary}
+                        </TableCell>
+                        <TableCell>
+                          <BillingAuditResultBadge result={log.result} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="py-8 text-center text-sm text-muted-foreground"
+                        colSpan={4}
+                      >
+                        No billing activity has been recorded yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "subscriptions-overview" ? (
+        <div className="grid gap-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle>Customer footprint</CardTitle>
+                <CardDescription>
+                  Active customer coverage and the accounts currently in scope
+                  for billing support.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Billing customers</span>
+                  <span className="font-medium">{data.customers.length}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Active customers</span>
+                  <span className="font-medium">{activeCustomerCount}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Customers with active subscriptions</span>
+                  <span className="font-medium">
+                    {
+                      data.customers.filter(
+                        (customer) => customer.activeSubscriptionCount > 0
+                      ).length
+                    }
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Inactive customer records</span>
+                  <span className="font-medium">
+                    {data.customers.length - activeCustomerCount}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle>Subscription health</CardTitle>
+                <CardDescription>
+                  Current subscription mix and the records most likely to
+                  require follow-up.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Active or trialing</span>
+                  <span className="font-medium">
+                    {activeOrTrialingSubscriptionCount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Subscriptions needing attention
+                  </span>
+                  <span className="font-medium">{subscriptionAttentionCount}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Cancel at period end</span>
+                  <span className="font-medium">{cancelAtPeriodEndCount}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Tracked plans in use</span>
+                  <span className="font-medium">
+                    {new Set(data.subscriptions.map((subscription) => subscription.planKey)).size}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Recent subscription rows</CardTitle>
+              <CardDescription>
+                Recent in-scope subscription records for support review.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="rounded-lg border border-border/70 p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Current period end</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentSubscriptionRows.length > 0 ? (
+                    recentSubscriptionRows.map((subscription) => (
+                      <TableRow key={subscription.stripeSubscriptionId}>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">{subscription.userName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {subscription.email ?? subscription.clerkUserId}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{subscription.planKey}</TableCell>
+                        <TableCell>
+                          <BillingSubscriptionStatusBadge
+                            status={subscription.status}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {subscription.currentPeriodEnd
+                            ? formatDateTime(subscription.currentPeriodEnd)
+                            : "Not set"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="py-8 text-center text-sm text-muted-foreground"
+                        colSpan={4}
+                      >
+                        No in-scope subscription rows are available yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "catalog-plans" ? (
           <Card className="border-border/70">
             <CardHeader>
               <CardTitle>Plans</CardTitle>
@@ -992,9 +1372,9 @@ export function StaffBillingView({
               />
             </CardContent>
           </Card>
-        </TabsContent>
+      ) : null}
 
-        <TabsContent value="features">
+      {section === "catalog-features" ? (
           <Card className="border-border/70">
             <CardHeader>
               <CardTitle>Features</CardTitle>
@@ -1018,9 +1398,9 @@ export function StaffBillingView({
               />
             </CardContent>
           </Card>
-        </TabsContent>
+      ) : null}
 
-        <TabsContent value="assignments">
+      {section === "catalog-assignments" ? (
           <div className="grid gap-6">
             <Card className="border-border/70">
               <CardHeader>
@@ -1158,20 +1538,35 @@ export function StaffBillingView({
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+      ) : null}
 
-        <TabsContent value="operations">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+      {section === "catalog-operations" ? (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
             <Card className="border-border/70">
               <CardHeader>
                 <CardTitle>Catalog sync</CardTitle>
                 <CardDescription>
-                  Convex is the editable source of truth. Sync pushes the current managed catalog to Stripe.
+                  Convex remains the editable source of truth. Sync pushes the
+                  current managed catalog to Stripe.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 text-sm">
                   {data.lastSync ? data.lastSync.summary : "No sync has completed yet."}
+                </div>
+                <div className="grid gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Last sync</span>
+                    <span className="font-medium">
+                      {data.lastSync ? formatDateTime(data.lastSync.syncedAt) : "Never"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Warnings</span>
+                    <span className="font-medium">
+                      {data.lastSync?.warningCount ?? 0}
+                    </span>
+                  </div>
                 </div>
                 <Button
                   disabled={billingMutation.isPending}
@@ -1183,49 +1578,96 @@ export function StaffBillingView({
               </CardContent>
             </Card>
 
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Active subscriptions</CardTitle>
-                <CardDescription>
-                  The rows below are the subscriptions most likely to be impacted by plan and price operations.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="rounded-lg border border-border/70 p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Price</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.subscriptions.map((subscription) => (
-                      <TableRow key={subscription.stripeSubscriptionId}>
-                        <TableCell>
+            <div className="grid gap-6">
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>Plans needing attention</CardTitle>
+                  <CardDescription>
+                    Paid plans without a complete Stripe product or price shape
+                    are listed here for cleanup.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3">
+                  {syncAttentionPlanCount > 0 ? (
+                    data.plans
+                      .filter((plan) => plan.syncStatus === "attention")
+                      .map((plan) => (
+                        <div
+                          className="flex items-center justify-between gap-4 rounded-lg border border-border/70 px-4 py-3"
+                          key={plan.key}
+                        >
                           <div className="flex flex-col gap-1">
-                            <span className="font-medium">{subscription.userName}</span>
+                            <span className="font-medium">{plan.name}</span>
                             <span className="text-xs text-muted-foreground">
-                              {subscription.email ?? subscription.clerkUserId}
+                              {plan.key}
                             </span>
                           </div>
-                        </TableCell>
-                        <TableCell>{subscription.planKey}</TableCell>
-                        <TableCell>{subscription.status}</TableCell>
-                        <TableCell className="max-w-[16rem] break-all text-xs text-muted-foreground">
-                          {subscription.stripePriceId}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground">
+                              {plan.activeSubscriptionCount} active subscription(s)
+                            </span>
+                            <SyncStatusBadge status={plan.syncStatus} />
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                      No plans currently require sync remediation.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-        <TabsContent value="audit">
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>Recent sync history</CardTitle>
+                  <CardDescription>
+                    Most recent manual or automatic Stripe catalog sync results.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="rounded-lg border border-border/70 p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>Summary</TableHead>
+                        <TableHead>Result</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentSyncLogs.length > 0 ? (
+                        recentSyncLogs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDateTime(log.createdAt)}
+                            </TableCell>
+                            <TableCell className="max-w-2xl whitespace-normal">
+                              {log.summary}
+                            </TableCell>
+                            <TableCell>
+                              <BillingAuditResultBadge result={log.result} />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            className="py-8 text-center text-sm text-muted-foreground"
+                            colSpan={3}
+                          >
+                            No sync records have been captured yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+      ) : null}
+
+      {section === "catalog-audit" ? (
           <Card className="border-border/70">
             <CardHeader>
               <CardTitle>Billing audit log</CardTitle>
@@ -1244,33 +1686,122 @@ export function StaffBillingView({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Intl.DateTimeFormat("en-GB", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(log.createdAt)}
-                      </TableCell>
-                      <TableCell>{log.action}</TableCell>
-                      <TableCell className="max-w-xl whitespace-normal">
-                        {log.summary}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={log.result === "success" ? "secondary" : "destructive"}
-                        >
-                          {log.result}
-                        </Badge>
+                  {data.auditLogs.length > 0 ? (
+                    data.auditLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(log.createdAt)}
+                        </TableCell>
+                        <TableCell>{log.action}</TableCell>
+                        <TableCell className="max-w-xl whitespace-normal">
+                          {log.summary}
+                        </TableCell>
+                        <TableCell>
+                          <BillingAuditResultBadge result={log.result} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        className="py-8 text-center text-sm text-muted-foreground"
+                        colSpan={4}
+                      >
+                        No audit entries are available yet.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+      ) : null}
+
+      {section === "subscriptions-customers" ? (
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Customers</CardTitle>
+            <CardDescription>
+              Linked billing customers and the live plan coverage currently
+              attached to each account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StaffDataTable
+              columns={customerColumns}
+              data={data.customers}
+              emptyDescription="Billing customer records will appear here once subscriptions or customer sync records are created."
+              emptyTitle="No customers yet"
+              getRowId={(row) => row.stripeCustomerId}
+              searchPlaceholder="Search customers"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {section === "subscriptions-active" ? (
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Active subscriptions</CardTitle>
+            <CardDescription>
+              The rows below are the subscriptions most likely to be impacted by
+              plan and price operations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="rounded-lg border border-border/70 p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Current period end</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.subscriptions.length > 0 ? (
+                  data.subscriptions.map((subscription) => (
+                    <TableRow key={subscription.stripeSubscriptionId}>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{subscription.userName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {subscription.email ?? subscription.clerkUserId}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{subscription.planKey}</TableCell>
+                      <TableCell>
+                        <BillingSubscriptionStatusBadge
+                          status={subscription.status}
+                        />
+                      </TableCell>
+                      <TableCell className="max-w-[16rem] break-all text-xs text-muted-foreground">
+                        {subscription.stripePriceId}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {subscription.currentPeriodEnd
+                          ? formatDateTime(subscription.currentPeriodEnd)
+                          : "Not set"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      className="py-8 text-center text-sm text-muted-foreground"
+                      colSpan={5}
+                    >
+                      No active subscription records are available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <PlanFormDialog
         billingMutationPending={billingMutation.isPending}
@@ -1473,7 +2004,6 @@ function PlanFormDialog(args: {
 }) {
   const pricesLocked =
     args.planForm?.mode === "edit" && args.planForm.planType === "paid"
-  const featurePickerContainerRef = useRef<HTMLDivElement | null>(null)
 
   return (
     <Dialog open={Boolean(args.planForm)} onOpenChange={(open) => !open && args.onClose()}>
@@ -1610,7 +2140,7 @@ function PlanFormDialog(args: {
             </div>
             <Field>
               <FieldLabel>Included features</FieldLabel>
-              <div ref={featurePickerContainerRef}>
+              <div>
                 <MultiSelectCombobox
                   emptyLabel="No active features match this search."
                   onChange={(values) =>
@@ -1620,7 +2150,6 @@ function PlanFormDialog(args: {
                   }
                   options={args.featureOptions}
                   placeholder="Search features"
-                  portalContainer={featurePickerContainerRef}
                   value={args.planForm.featureKeys}
                 />
               </div>
