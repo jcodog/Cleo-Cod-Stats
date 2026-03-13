@@ -19,9 +19,12 @@ import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
+  formatStaffRoleLabel,
   resolveStaffRoute,
   STAFF_CONSOLE_TITLE,
 } from "@/features/staff/lib/staff-navigation"
+import { Badge } from "@workspace/ui/components/badge"
+import { UserRole } from "@workspace/backend/convex/lib/staffRoles"
 
 function StaffConsoleBreadcrumb({
   items,
@@ -59,7 +62,7 @@ function StaffConsoleBreadcrumb({
   )
 }
 
-export function StaffConsoleHeader() {
+export function StaffConsoleHeader({ role }: { role: UserRole }) {
   const pathname = usePathname()
   const currentRoute = resolveStaffRoute(pathname)
 
@@ -75,7 +78,8 @@ export function StaffConsoleHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <Badge variant="outline">{formatStaffRoleLabel(role)}</Badge>
+
           <Button asChild size="sm" variant="outline">
             <Link href="/dashboard">
               <IconArrowBack aria-hidden="true" data-icon="inline-start" />
@@ -83,6 +87,7 @@ export function StaffConsoleHeader() {
               <span className="sm:hidden">Return</span>
             </Link>
           </Button>
+          <ThemeToggle />
         </div>
       </div>
 

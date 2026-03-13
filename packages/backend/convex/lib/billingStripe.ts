@@ -17,6 +17,21 @@ function isExpandedObject<T extends { id: string }>(
   return typeof value === "object" && value !== null && "id" in value
 }
 
+function getObjectRecord(value: unknown) {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function getObjectIdentifier(value: unknown) {
+  if (typeof value === "string") {
+    return value
+  }
+
+  const record = getObjectRecord(value)
+  return typeof record?.id === "string" ? record.id : undefined
+}
+
 export function getStripePriceId(price: string | Stripe.Price | null | undefined) {
   if (!price) {
     return undefined
@@ -285,8 +300,10 @@ export function mapSubscriptionScheduleChange(args: {
 function getInvoiceSubscriptionId(
   object: Record<string, unknown> | null
 ) {
-  if (typeof object?.subscription === "string") {
-    return object.subscription
+  const directSubscriptionId = getObjectIdentifier(object?.subscription)
+
+  if (directSubscriptionId) {
+    return directSubscriptionId
   }
 
   const parent =
@@ -299,31 +316,107 @@ function getInvoiceSubscriptionId(
       ? (parent.subscription_details as Record<string, unknown>)
       : null
 
-  return typeof subscriptionDetails?.subscription === "string"
-    ? subscriptionDetails.subscription
-    : undefined
+  return getObjectIdentifier(subscriptionDetails?.subscription)
 }
 
-export function buildWebhookSafeSummary(event: Stripe.Event) {
+function getEventCustomerId(object: Record<string, unknown> | null) {
+  const directCustomerId = getObjectIdentifier(object?.customer)
+
+  if (directCustomerId) {
+    return directCustomerId
+  }
+
+  const latestInvoice = getObjectRecord(object?.latest_invoice)
+  return getObjectIdentifier(latestInvoice?.customer)
+}
+
+function getEventInvoiceId(args: {
+  eventType: string
+  object: Record<string, unknown> | null
+}) {
+  if (
+    typeof args.object?.id === "string" &&
+    args.eventType.startsWith("invoice.")
+  ) {
+    return args.object.id
+  }
+
+  return getObjectIdentifier(args.object?.latest_invoice)
+}
+
+function getInvoicePaymentIntentIdFromObject(
+  object: Record<string, unknown> | null
+) {
+  const directPaymentIntentId = getObjectIdentifier(object?.payment_intent)
+
+  if (directPaymentIntentId) {
+    return directPaymentIntentId
+  }
+
+  const payments = getObjectRecord(object?.payments)
+  const paymentEntries = Array.isArray(payments?.data) ? payments.data : []
+
+  for (const paymentEntry of paymentEntries) {
+    const paymentEntryRecord = getObjectRecord(paymentEntry)
+    const payment = getObjectRecord(paymentEntryRecord?.payment)
+    const paymentIntentId = getObjectIdentifier(payment?.payment_intent)
+
+    if (paymentIntentId) {
+      return paymentIntentId
+    }
+  }
+
+  return undefined
+}
+
+function getEventPaymentIntentId(object: Record<string, unknown> | null) {
+  const directPaymentIntentId = getInvoicePaymentIntentIdFromObject(object)
+
+  if (directPaymentIntentId) {
+    return directPaymentIntentId
+  }
+
+  const latestInvoice = getObjectRecord(object?.latest_invoice)
+  return getInvoicePaymentIntentIdFromObject(latestInvoice)
+}
+
+function extractWebhookObjectIds(event: Stripe.Event) {
   const object =
     event.data.object && typeof event.data.object === "object"
       ? (event.data.object as unknown as Record<string, unknown>)
       : null
-  const customerId =
-    typeof object?.customer === "string" ? object.customer : undefined
-  const subscriptionId =
-    getInvoiceSubscriptionId(object) ??
-    (typeof object?.id === "string" && event.type.startsWith("customer.subscription")
-      ? object.id
-      : undefined)
-  const invoiceId =
-    typeof object?.id === "string" && event.type.startsWith("invoice.")
-      ? object.id
-      : undefined
-  const paymentIntentId =
-    typeof object?.payment_intent === "string"
-      ? object.payment_intent
-      : undefined
+
+  return {
+    customerId: getEventCustomerId(object),
+    invoiceId: getEventInvoiceId({
+      eventType: event.type,
+      object,
+    }),
+    paymentIntentId: getEventPaymentIntentId(object),
+    subscriptionId:
+      getInvoiceSubscriptionId(object) ??
+      (typeof object?.id === "string" &&
+      event.type.startsWith("customer.subscription")
+        ? object.id
+        : undefined),
+  }
+}
+
+export function getWebhookObjectIdsFromPayloadJson(payloadJson: string | undefined) {
+  if (!payloadJson) {
+    return null
+  }
+
+  try {
+    return extractWebhookObjectIds(JSON.parse(payloadJson) as Stripe.Event)
+  } catch {
+    return null
+  }
+}
+
+export function buildWebhookSafeSummary(event: Stripe.Event) {
+  const { customerId, invoiceId, paymentIntentId, subscriptionId } =
+    extractWebhookObjectIds(event)
 
   return [
     event.type,
@@ -337,27 +430,5 @@ export function buildWebhookSafeSummary(event: Stripe.Event) {
 }
 
 export function getWebhookObjectIds(event: Stripe.Event) {
-  const object =
-    event.data.object && typeof event.data.object === "object"
-      ? (event.data.object as unknown as Record<string, unknown>)
-      : null
-
-  return {
-    customerId:
-      typeof object?.customer === "string" ? object.customer : undefined,
-    invoiceId:
-      typeof object?.id === "string" && event.type.startsWith("invoice.")
-        ? object.id
-        : undefined,
-    paymentIntentId:
-      typeof object?.payment_intent === "string"
-        ? object.payment_intent
-        : undefined,
-    subscriptionId:
-      getInvoiceSubscriptionId(object) ??
-      (typeof object?.id === "string" &&
-      event.type.startsWith("customer.subscription")
-        ? object.id
-        : undefined),
-  }
+  return extractWebhookObjectIds(event)
 }

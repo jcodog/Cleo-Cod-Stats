@@ -30,6 +30,7 @@ const billingScheduledChangeTypeValidator = v.union(
   v.literal("cancel"),
   v.literal("plan_change")
 )
+const webhookProcessingLeaseMs = 10 * 60 * 1000
 
 const billingPaymentMethodSnapshotValidator = v.object({
   bankName: v.optional(v.string()),
@@ -135,6 +136,18 @@ async function getExistingSubscriptionRecord(args: {
     .query("billingSubscriptions")
     .withIndex("by_stripeSubscriptionId", (query) =>
       query.eq("stripeSubscriptionId", args.stripeSubscriptionId)
+    )
+    .unique()
+}
+
+async function getExistingWebhookEventRecord(args: {
+  ctx: MutationCtx
+  stripeEventId: string
+}) {
+  return await args.ctx.db
+    .query("billingWebhookEvents")
+    .withIndex("by_stripeEventId", (query) =>
+      query.eq("stripeEventId", args.stripeEventId)
     )
     .unique()
 }
@@ -826,19 +839,59 @@ export const recordWebhookEventReceived = internalMutation({
     eventType: v.string(),
     invoiceId: v.optional(v.string()),
     paymentIntentId: v.optional(v.string()),
+    payloadJson: v.optional(v.string()),
     safeSummary: v.string(),
     stripeEventId: v.string(),
     subscriptionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existingEvent = await ctx.db
-      .query("billingWebhookEvents")
-      .withIndex("by_stripeEventId", (query) =>
-        query.eq("stripeEventId", args.stripeEventId)
-      )
-      .unique()
+    const now = Date.now()
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
 
     if (existingEvent) {
+      const patch: Partial<Doc<"billingWebhookEvents">> = {
+        deliveryCount: (existingEvent.deliveryCount ?? 1) + 1,
+        lastDeliveryAt: now,
+        updatedAt: now,
+      }
+
+      if (
+        existingEvent.payloadJson === undefined &&
+        args.payloadJson !== undefined
+      ) {
+        patch.payloadBackfilledAt = undefined
+        patch.payloadJson = args.payloadJson
+        patch.payloadUnavailableAt = undefined
+        patch.payloadUnavailableReason = undefined
+      }
+
+      if (existingEvent.customerId === undefined && args.customerId !== undefined) {
+        patch.customerId = args.customerId
+      }
+      if (existingEvent.invoiceId === undefined && args.invoiceId !== undefined) {
+        patch.invoiceId = args.invoiceId
+      }
+      if (
+        existingEvent.paymentIntentId === undefined &&
+        args.paymentIntentId !== undefined
+      ) {
+        patch.paymentIntentId = args.paymentIntentId
+      }
+      if (
+        existingEvent.subscriptionId === undefined &&
+        args.subscriptionId !== undefined
+      ) {
+        patch.subscriptionId = args.subscriptionId
+      }
+      if (existingEvent.safeSummary !== args.safeSummary) {
+        patch.safeSummary = args.safeSummary
+      }
+
+      await ctx.db.patch(existingEvent._id, patch)
+
       return {
         alreadyExists: true,
         eventId: existingEvent._id,
@@ -846,15 +899,22 @@ export const recordWebhookEventReceived = internalMutation({
       }
     }
 
-    const now = Date.now()
     const eventId = await ctx.db.insert("billingWebhookEvents", {
       createdAt: now,
       customerId: args.customerId,
+      deliveryCount: 1,
       errorMessage: undefined,
       eventType: args.eventType,
       invoiceId: args.invoiceId,
+      lastDeliveryAt: now,
       paymentIntentId: args.paymentIntentId,
+      payloadBackfilledAt: undefined,
+      payloadJson: args.payloadJson,
+      payloadUnavailableAt: undefined,
+      payloadUnavailableReason: undefined,
       processedAt: undefined,
+      processingAttemptCount: 0,
+      processingClaimedAt: undefined,
       processingStatus: "received",
       receivedAt: now,
       safeSummary: args.safeSummary,
@@ -871,31 +931,118 @@ export const recordWebhookEventReceived = internalMutation({
   },
 })
 
-export const markWebhookEventProcessing = internalMutation({
+export const claimWebhookEventProcessing = internalMutation({
   args: {
     stripeEventId: v.string(),
   },
   handler: async (ctx, args) => {
-    const existingEvent = await ctx.db
-      .query("billingWebhookEvents")
-      .withIndex("by_stripeEventId", (query) =>
-        query.eq("stripeEventId", args.stripeEventId)
-      )
-      .unique()
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
 
     if (!existingEvent) {
-      return null
+      return {
+        processingStatus: undefined,
+        shouldProcess: false,
+        reason: "missing" as const,
+      }
     }
 
     if (
       existingEvent.processingStatus === "processed" ||
       existingEvent.processingStatus === "ignored"
     ) {
-      return existingEvent._id
+      return {
+        processingStatus: existingEvent.processingStatus,
+        shouldProcess: false,
+        reason: "finalized" as const,
+      }
+    }
+
+    const now = Date.now()
+    const activeClaim =
+      existingEvent.processingStatus === "processing" &&
+      existingEvent.processingClaimedAt !== undefined &&
+      now - existingEvent.processingClaimedAt < webhookProcessingLeaseMs
+
+    if (activeClaim) {
+      return {
+        processingStatus: existingEvent.processingStatus,
+        shouldProcess: false,
+        reason: "in_flight" as const,
+      }
     }
 
     await ctx.db.patch(existingEvent._id, {
+      errorMessage: undefined,
+      processedAt: undefined,
+      processingAttemptCount: (existingEvent.processingAttemptCount ?? 0) + 1,
+      processingClaimedAt: now,
       processingStatus: "processing",
+      updatedAt: now,
+    })
+
+    return {
+      processingStatus: "processing" as const,
+      shouldProcess: true,
+      reason:
+        existingEvent.processingStatus === "failed"
+          ? ("retry" as const)
+          : ("claimed" as const),
+    }
+  },
+})
+
+export const storeWebhookEventPayload = internalMutation({
+  args: {
+    payloadBackfilledAt: v.optional(v.number()),
+    payloadJson: v.string(),
+    stripeEventId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
+
+    if (!existingEvent) {
+      return null
+    }
+
+    await ctx.db.patch(existingEvent._id, {
+      payloadBackfilledAt: args.payloadBackfilledAt,
+      payloadJson: args.payloadJson,
+      payloadUnavailableAt: undefined,
+      payloadUnavailableReason: undefined,
+      updatedAt: Date.now(),
+    })
+
+    return existingEvent._id
+  },
+})
+
+export const markWebhookEventPayloadUnavailable = internalMutation({
+  args: {
+    reason: v.optional(v.string()),
+    stripeEventId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
+
+    if (!existingEvent) {
+      return null
+    }
+
+    await ctx.db.patch(existingEvent._id, {
+      payloadBackfilledAt: undefined,
+      payloadJson: undefined,
+      // Stripe only keeps historical event retrieval available for a limited window.
+      payloadUnavailableAt: Date.now(),
+      payloadUnavailableReason: args.reason,
       updatedAt: Date.now(),
     })
 
@@ -909,12 +1056,10 @@ export const markWebhookEventProcessed = internalMutation({
     stripeEventId: v.string(),
   },
   handler: async (ctx, args) => {
-    const existingEvent = await ctx.db
-      .query("billingWebhookEvents")
-      .withIndex("by_stripeEventId", (query) =>
-        query.eq("stripeEventId", args.stripeEventId)
-      )
-      .unique()
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
 
     if (!existingEvent) {
       return null
@@ -923,6 +1068,7 @@ export const markWebhookEventProcessed = internalMutation({
     await ctx.db.patch(existingEvent._id, {
       errorMessage: undefined,
       processedAt: Date.now(),
+      processingClaimedAt: undefined,
       processingStatus: args.processingStatus,
       updatedAt: Date.now(),
     })
@@ -937,12 +1083,10 @@ export const markWebhookEventFailed = internalMutation({
     stripeEventId: v.string(),
   },
   handler: async (ctx, args) => {
-    const existingEvent = await ctx.db
-      .query("billingWebhookEvents")
-      .withIndex("by_stripeEventId", (query) =>
-        query.eq("stripeEventId", args.stripeEventId)
-      )
-      .unique()
+    const existingEvent = await getExistingWebhookEventRecord({
+      ctx,
+      stripeEventId: args.stripeEventId,
+    })
 
     if (!existingEvent) {
       return null
@@ -951,6 +1095,7 @@ export const markWebhookEventFailed = internalMutation({
     await ctx.db.patch(existingEvent._id, {
       errorMessage: args.errorMessage,
       processedAt: Date.now(),
+      processingClaimedAt: undefined,
       processingStatus: "failed",
       updatedAt: Date.now(),
     })

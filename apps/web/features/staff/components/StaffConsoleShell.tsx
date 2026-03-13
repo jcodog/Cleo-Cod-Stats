@@ -25,14 +25,16 @@ export function StaffConsoleShell({
       </a>
       <StaffConsoleSidebar role={role} />
       <SidebarInset className="min-h-0 overflow-hidden bg-background md:peer-data-[variant=inset]:m-1 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-1">
-        <StaffConsoleHeader />
+        <StaffConsoleHeader role={role} />
         <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6 md:py-8 lg:px-8">
           <main
-            className="mx-auto flex min-h-0 w-full max-w-[1400px] min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain supports-[scrollbar-gutter:stable]:[scrollbar-gutter:stable] lg:pr-1"
+            className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain supports-[scrollbar-gutter:stable]:[scrollbar-gutter:stable]"
             id="staff-console-content"
             tabIndex={-1}
           >
-            <div className="flex min-h-full flex-col">{children}</div>
+            <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col">
+              {children}
+            </div>
           </main>
         </div>
       </SidebarInset>

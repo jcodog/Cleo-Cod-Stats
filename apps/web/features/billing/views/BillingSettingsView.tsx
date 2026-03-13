@@ -59,16 +59,13 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@workspace/ui/components/native-select"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 import { toast } from "sonner"
 
 import { CheckoutPaymentForm } from "@/features/billing/components/CheckoutPaymentForm"
 import { InvoiceHistoryTable } from "@/features/billing/components/InvoiceHistoryTable"
+import { PlanSelector } from "@/features/billing/components/PlanSelector"
 import {
   BillingClientError,
   useBillingCenter,
@@ -81,7 +78,6 @@ import {
   useSyncBillingCenter,
   useUpdateBillingProfile,
   useUpdateSubscriptionPlan,
-  useCancelSubscription,
 } from "@/features/billing/lib/billing-client"
 import {
   formatBillingInterval,
@@ -132,6 +128,14 @@ type SubscriptionConfirmationState = {
   clientSecret: string
   secretType: "payment_intent" | "setup_intent"
 }
+
+type SubscriptionSelectionKind =
+  | "cancel_to_free"
+  | "noop"
+  | "scheduled_downgrade"
+  | "update_now"
+  | "switch_now"
+  | "upgrade_now"
 
 function createBillingProfileFormState(
   profile: BillingCenterData["billingProfile"]
@@ -238,6 +242,183 @@ function getSubscriptionChangeActionLabel(change: BillingChangeResult) {
   }
 
   return "Subscription updated."
+}
+
+function getCatalogPlanPrice(
+  plan: PricingCatalogPlan,
+  interval: BillingInterval
+) {
+  return interval === "year" ? plan.pricing.year : plan.pricing.month
+}
+
+function getCatalogPlanAmount(
+  plan: PricingCatalogPlan,
+  interval: BillingInterval
+) {
+  return getCatalogPlanPrice(plan, interval)?.amount ?? 0
+}
+
+function getCatalogMonthlyEquivalentAmount(
+  plan: PricingCatalogPlan,
+  interval: BillingInterval
+) {
+  const amount = getCatalogPlanAmount(plan, interval)
+  return interval === "year" ? amount / 12 : amount
+}
+
+function classifySubscriptionSelection(args: {
+  currentInterval: BillingInterval
+  currentPlan: PricingCatalogPlan | null
+  targetInterval: BillingInterval
+  targetPlan: PricingCatalogPlan | null
+}): SubscriptionSelectionKind {
+  if (!args.currentPlan || !args.targetPlan) {
+    return "noop"
+  }
+
+  if (
+    args.currentPlan.planKey === args.targetPlan.planKey &&
+    args.currentInterval === args.targetInterval
+  ) {
+    return "noop"
+  }
+
+  if (args.currentPlan.planKey === args.targetPlan.planKey) {
+    return "update_now"
+  }
+
+  if (args.targetPlan.planType === "free") {
+    return "cancel_to_free"
+  }
+
+  if (args.targetPlan.sortOrder > args.currentPlan.sortOrder) {
+    return "upgrade_now"
+  }
+
+  if (args.targetPlan.sortOrder < args.currentPlan.sortOrder) {
+    return "scheduled_downgrade"
+  }
+
+  const currentEquivalent = getCatalogMonthlyEquivalentAmount(
+    args.currentPlan,
+    args.currentInterval
+  )
+  const targetEquivalent = getCatalogMonthlyEquivalentAmount(
+    args.targetPlan,
+    args.targetInterval
+  )
+
+  if (targetEquivalent > currentEquivalent) {
+    return "upgrade_now"
+  }
+
+  if (targetEquivalent < currentEquivalent) {
+    return "scheduled_downgrade"
+  }
+
+  return "switch_now"
+}
+
+function getPrimarySubscriptionActionLabel(kind: SubscriptionSelectionKind) {
+  switch (kind) {
+    case "cancel_to_free":
+    case "scheduled_downgrade":
+      return "Downgrade"
+    case "update_now":
+      return "Update"
+    case "upgrade_now":
+    case "switch_now":
+      return "Upgrade"
+    case "noop":
+      return null
+  }
+}
+
+function createManagementFreePlan(
+  sortOrder: number
+): PricingCatalogPlan {
+  return {
+    active: true,
+    description:
+      "Return the account to free access after the current paid billing period ends.",
+    features: [],
+    name: "Free",
+    planKey: "free",
+    planType: "free",
+    pricing: {
+      month: null,
+      year: null,
+    },
+    relationship: "downgrade",
+    sortOrder,
+  }
+}
+
+function ensureManagementPlanOptions(plans: PricingCatalogPlan[]) {
+  if (plans.some((plan) => plan.planKey === "free")) {
+    return plans
+  }
+
+  const nextSortOrder =
+    plans.reduce((max, plan) => Math.max(max, plan.sortOrder), 0) + 1
+
+  return [...plans, createManagementFreePlan(nextSortOrder)]
+}
+
+function orderManagementPlanOptions(args: {
+  currentInterval: BillingInterval
+  currentPlanKey?: string | null
+  plans: PricingCatalogPlan[]
+}) {
+  const plans = [...args.plans]
+
+  plans.sort((left, right) => {
+    const leftIsCurrent = left.planKey === args.currentPlanKey
+    const rightIsCurrent = right.planKey === args.currentPlanKey
+
+    if (leftIsCurrent !== rightIsCurrent) {
+      return leftIsCurrent ? -1 : 1
+    }
+
+    const amountDifference =
+      getCatalogPlanAmount(right, args.currentInterval) -
+      getCatalogPlanAmount(left, args.currentInterval)
+
+    if (amountDifference !== 0) {
+      return amountDifference
+    }
+
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder
+    }
+
+    return left.planKey.localeCompare(right.planKey)
+  })
+
+  return plans
+}
+
+function getPlanFeatureNames(plan: PricingCatalogPlan | null) {
+  if (!plan) {
+    return []
+  }
+
+  return plan.features.map((feature) => feature.name)
+}
+
+function getFeatureDifference(args: {
+  currentPlan: PricingCatalogPlan | null
+  targetPlan: PricingCatalogPlan | null
+}) {
+  const currentFeatureNames = getPlanFeatureNames(args.currentPlan)
+  const targetFeatureNames = getPlanFeatureNames(args.targetPlan)
+  const currentFeatureSet = new Set(currentFeatureNames)
+  const targetFeatureSet = new Set(targetFeatureNames)
+
+  return {
+    gained: targetFeatureNames.filter((name) => !currentFeatureSet.has(name)),
+    lost: currentFeatureNames.filter((name) => !targetFeatureSet.has(name)),
+  }
 }
 
 function hasPotentiallyStaleSubscriptionState(
@@ -854,13 +1035,10 @@ function SubscriptionManagementDialog(args: {
   changePending: boolean
   confirmation: SubscriptionConfirmationState | null
   onClose: () => void
-  onConfirmCancellation: () => void
+  onPrepareChange: () => void
   onIntervalChange: (interval: BillingInterval) => void
   onPlanChange: (planKey: string) => void
-  onPreview: () => void
   onResume: () => void
-  onSubmitChange: () => void
-  preview: BillingChangePreview | null
   previewPending: boolean
   pricingPlans: PricingCatalogPlan[]
   profileEmail?: string | null
@@ -870,15 +1048,29 @@ function SubscriptionManagementDialog(args: {
   state: SubscriptionDialogState
   subscription: BillingCenterSubscription
 }) {
+  const currentPlan =
+    args.pricingPlans.find((plan) => plan.planKey === args.subscription.planKey) ??
+    null
   const selectedPrice =
-    args.selectedPlan &&
-    (args.state.interval === "year"
-      ? args.selectedPlan.pricing.year
-      : args.selectedPlan.pricing.month)
+    args.selectedPlan?.planType === "paid"
+      ? getCatalogPlanPrice(args.selectedPlan, args.state.interval)
+      : null
+  const selectionKind = classifySubscriptionSelection({
+    currentInterval: args.subscription.billingInterval,
+    currentPlan,
+    targetInterval: args.state.interval,
+    targetPlan: args.selectedPlan,
+  })
+  const canReviewChange =
+    !args.catalogPending &&
+    args.selectedPlan !== null &&
+    (args.selectedPlan.planType === "free" || selectedPrice !== null) &&
+    selectionKind !== "noop"
+  const primaryActionLabel = getPrimarySubscriptionActionLabel(selectionKind)
 
   return (
     <Dialog onOpenChange={(open) => !open && args.onClose()} open>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100%-1.5rem)] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-[calc(100%-1.5rem)] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Manage subscription</DialogTitle>
           <DialogDescription>
@@ -953,63 +1145,22 @@ function SubscriptionManagementDialog(args: {
             <div className="grid gap-4">
               <div className="rounded-lg border border-border/70 bg-background/60 px-4 py-4">
                 <div className="flex flex-col gap-1">
-                  <div className="font-medium">
-                    Change plan or billing interval
-                  </div>
+                  <div className="font-medium">Choose the next plan</div>
                   <p className="text-sm text-muted-foreground">
-                    Immediate upgrades are invoiced through Stripe. Downgrades
-                    and lateral changes are scheduled for the next renewal when
-                    Stripe requires it.
+                    Upgrades apply immediately and Stripe calculates unused-time
+                    credit on the change invoice. Downgrades keep the current
+                    paid features active until the end of the billing period.
                   </p>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <Field>
-                    <FieldLabel>Billing interval</FieldLabel>
-                    <NativeSelect
-                      onChange={(event) =>
-                        args.onIntervalChange(
-                          event.target.value as BillingInterval
-                        )
-                      }
-                      value={args.state.interval}
-                    >
-                      <NativeSelectOption value="month">
-                        Monthly
-                      </NativeSelectOption>
-                      <NativeSelectOption value="year">
-                        Yearly
-                      </NativeSelectOption>
-                    </NativeSelect>
-                  </Field>
-                  <Field>
-                    <FieldLabel>Target plan</FieldLabel>
-                    <NativeSelect
-                      onChange={(event) =>
-                        args.onPlanChange(event.target.value)
-                      }
-                      value={args.state.planKey}
-                    >
-                      {args.pricingPlans.map((plan) => {
-                        const price =
-                          args.state.interval === "year"
-                            ? plan.pricing.year
-                            : plan.pricing.month
-
-                        return (
-                          <NativeSelectOption
-                            key={plan.planKey}
-                            value={plan.planKey}
-                          >
-                            {plan.name}
-                            {price
-                              ? ` (${formatCurrencyAmount(price.amount, price.currency)} / ${price.interval})`
-                              : " (not sold on this interval)"}
-                          </NativeSelectOption>
-                        )
-                      })}
-                    </NativeSelect>
-                  </Field>
+                <div className="mt-4">
+                  <PlanSelector
+                    interval={args.state.interval}
+                    onIntervalChange={args.onIntervalChange}
+                    onSelectPlan={args.onPlanChange}
+                    plans={args.pricingPlans}
+                    selectedPlanKey={args.state.planKey}
+                  />
                 </div>
 
                 {args.catalogPending ? (
@@ -1018,7 +1169,9 @@ function SubscriptionManagementDialog(args: {
                   </div>
                 ) : null}
 
-                {!args.catalogPending && !selectedPrice ? (
+                {!args.catalogPending &&
+                args.selectedPlan?.planType === "paid" &&
+                !selectedPrice ? (
                   <Alert className="mt-4" variant="destructive">
                     <AlertTitle>Plan change unavailable</AlertTitle>
                     <AlertDescription>
@@ -1028,77 +1181,27 @@ function SubscriptionManagementDialog(args: {
                   </Alert>
                 ) : null}
 
-                {args.preview ? (
-                  <div className="mt-4 rounded-lg border border-border/70 bg-muted/10 px-4 py-4">
-                    <div className="font-medium">Change summary</div>
-                    <p className="mt-1 break-words text-sm text-muted-foreground">
-                      {args.preview.summary}
-                    </p>
-                    <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-                      <BillingValue
-                        label="Current amount"
-                        value={
-                          args.subscription.currency
-                            ? formatCurrencyAmount(
-                                args.preview.currentAmount,
-                                args.subscription.currency
-                              )
-                            : "Not available"
-                        }
-                      />
-                      <BillingValue
-                        label="Target amount"
-                        value={
-                          selectedPrice
-                            ? formatCurrencyAmount(
-                                args.preview.targetAmount,
-                                selectedPrice.currency
-                              )
-                            : "Not available"
-                        }
-                      />
-                      <BillingValue
-                        label="Due now"
-                        value={
-                          selectedPrice
-                            ? formatCurrencyAmount(
-                                args.preview.amountDueNow,
-                                selectedPrice.currency
-                              )
-                            : "Not available"
-                        }
-                      />
-                      <BillingValue
-                        label="Effective date"
-                        value={formatDateLabel(args.preview.effectiveAt)}
-                      />
-                    </div>
+                {!args.catalogPending &&
+                args.selectedPlan?.planType === "free" ? (
+                  <div className="mt-4 rounded-lg border border-border/70 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                    Choosing the free plan schedules this subscription to end on{" "}
+                    {formatDateLabel(args.subscription.currentPeriodEnd)}. Paid
+                    features stay active until that date, and the account moves
+                    to free access after the current billing period finishes.
                   </div>
                 ) : null}
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    disabled={
-                      args.catalogPending ||
-                      !selectedPrice ||
-                      args.previewPending
-                    }
-                    onClick={args.onPreview}
-                    variant="outline"
-                  >
-                    {args.previewPending ? "Reviewing..." : "Review change"}
-                  </Button>
-                  <Button
-                    disabled={
-                      args.catalogPending ||
-                      !selectedPrice ||
-                      !args.preview ||
-                      args.changePending
-                    }
-                    onClick={args.onSubmitChange}
-                  >
-                    {args.changePending ? "Applying..." : "Apply change"}
-                  </Button>
+                  {primaryActionLabel ? (
+                    <Button
+                      disabled={!canReviewChange || args.previewPending}
+                      onClick={args.onPrepareChange}
+                    >
+                      {args.previewPending
+                        ? "Preparing..."
+                        : primaryActionLabel}
+                    </Button>
+                  ) : null}
                   {args.subscription.cancelAtPeriodEnd ? (
                     <Button
                       disabled={args.reactivatePending}
@@ -1109,14 +1212,12 @@ function SubscriptionManagementDialog(args: {
                         ? "Resuming..."
                         : "Resume renewal"}
                     </Button>
-                  ) : (
-                    <Button
-                      onClick={args.onConfirmCancellation}
-                      variant="outline"
-                    >
-                      Cancel at period end
-                    </Button>
-                  )}
+                  ) : null}
+                  {!primaryActionLabel && !args.subscription.cancelAtPeriodEnd ? (
+                    <div className="text-sm text-muted-foreground">
+                      Select a different plan to continue.
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1186,6 +1287,170 @@ function SubscriptionManagementDialog(args: {
   )
 }
 
+function SubscriptionChangeConfirmationDialog(args: {
+  currentPlan: PricingCatalogPlan | null
+  onClose: () => void
+  onConfirm: () => void
+  pending: boolean
+  preview: BillingChangePreview
+  subscription: BillingCenterSubscription
+  targetPlan: PricingCatalogPlan | null
+}) {
+  const currency =
+    getCatalogPlanPrice(
+      args.targetPlan ?? args.currentPlan ?? createManagementFreePlan(0),
+      args.preview.interval
+    )?.currency ??
+    args.subscription.currency ??
+    null
+  const featureDifference = getFeatureDifference({
+    currentPlan: args.currentPlan,
+    targetPlan: args.targetPlan,
+  })
+  const isSamePlanIntervalUpdate =
+    args.currentPlan?.planKey !== undefined &&
+    args.currentPlan.planKey === args.targetPlan?.planKey
+  const isDowngrade =
+    args.preview.mode === "cancel_at_period_end" ||
+    args.preview.mode === "scheduled_change"
+  const title =
+    isSamePlanIntervalUpdate
+      ? `Confirm ${formatBillingInterval(args.preview.interval)} billing update`
+      : args.preview.mode === "cancel_at_period_end"
+      ? "Confirm downgrade to free"
+      : isDowngrade
+        ? `Confirm downgrade to ${args.targetPlan?.name ?? "the selected plan"}`
+        : `Confirm upgrade to ${args.targetPlan?.name ?? "the selected plan"}`
+  const confirmLabel = isSamePlanIntervalUpdate
+    ? "Confirm update"
+    : isDowngrade
+      ? "Confirm downgrade"
+      : "Confirm upgrade"
+
+  return (
+    <AlertDialog onOpenChange={(open) => !open && args.onClose()} open>
+      <AlertDialogContent className="max-w-2xl">
+        <AlertDialogHeader className="items-start text-left">
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {isSamePlanIntervalUpdate
+              ? "The plan stays the same, but the billing interval changes immediately after confirmation. Stripe recalculates the remaining paid time and applies any resulting adjustment to the change invoice."
+              : args.preview.mode === "immediate_change"
+              ? "The new plan starts immediately. Stripe calculates the unused-time credit from the current plan and applies it to the change invoice today."
+              : args.preview.mode === "cancel_at_period_end"
+                ? "The subscription stays active until the end of the current billing period, then the account returns to the free plan. Stripe does not issue a refund for unused paid time."
+                : "The current paid plan stays active until the end of the billing period. The downgrade only affects the next renewal and Stripe does not issue a refund for unused paid time."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-border/70 bg-muted/10 px-4 py-4">
+            <div className="grid gap-3 text-sm md:grid-cols-2">
+              <BillingValue
+                label="Current plan"
+                value={args.currentPlan?.name ?? args.subscription.productName}
+              />
+              <BillingValue
+                label="Next plan"
+                value={args.targetPlan?.name ?? "Free"}
+              />
+              <BillingValue
+                label="Current amount"
+                value={
+                  currency
+                    ? formatCurrencyAmount(args.preview.currentAmount, currency)
+                    : "Not available"
+                }
+              />
+              <BillingValue
+                label={
+                  args.preview.mode === "immediate_change"
+                    ? "New amount"
+                    : "Next renewal amount"
+                }
+                value={
+                  currency
+                    ? formatCurrencyAmount(args.preview.targetAmount, currency)
+                    : "Not available"
+                }
+              />
+              {args.preview.mode === "immediate_change" ? (
+                <>
+                  <BillingValue
+                    label="Unused time credit"
+                    value={
+                      currency
+                        ? formatCurrencyAmount(
+                            args.preview.creditApplied,
+                            currency
+                          )
+                        : "Not available"
+                    }
+                  />
+                  <BillingValue
+                    label="Due now"
+                    value={
+                      currency
+                        ? formatCurrencyAmount(args.preview.amountDueNow, currency)
+                        : "Not available"
+                    }
+                  />
+                </>
+              ) : (
+                <BillingValue
+                  label="Effective date"
+                  value={formatDateLabel(args.preview.effectiveAt)}
+                />
+              )}
+            </div>
+          </div>
+
+          {featureDifference.gained.length > 0 ? (
+            <div className="rounded-lg border border-border/70 bg-muted/10 px-4 py-4">
+              <div className="font-medium">You gain access to</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {featureDifference.gained.map((featureName) => (
+                  <Badge key={featureName} variant="secondary">
+                    {featureName}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {featureDifference.lost.length > 0 ? (
+            <div className="rounded-lg border border-border/70 bg-muted/10 px-4 py-4">
+              <div className="font-medium">You lose access to</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {featureDifference.lost.map((featureName) => (
+                  <Badge key={featureName} variant="outline">
+                    {featureName}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={args.pending}>
+            Keep current plan
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={args.pending}
+            onClick={(event) => {
+              event.preventDefault()
+              args.onConfirm()
+            }}
+          >
+            {args.pending ? "Applying..." : confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export function BillingSettingsView({
   checkoutEnabled,
 }: {
@@ -1201,7 +1466,6 @@ export function BillingSettingsView({
   const removePaymentMethod = useRemovePaymentMethod()
   const previewSubscriptionChange = usePreviewSubscriptionChange()
   const updateSubscription = useUpdateSubscriptionPlan()
-  const cancelSubscription = useCancelSubscription()
   const reactivateSubscription = useReactivateSubscription()
 
   const [billingProfileDialogOpen, setBillingProfileDialogOpen] =
@@ -1219,15 +1483,12 @@ export function BillingSettingsView({
     useState<BillingChangePreview | null>(null)
   const [subscriptionConfirmation, setSubscriptionConfirmation] =
     useState<SubscriptionConfirmationState | null>(null)
-  const [subscriptionPendingCancellation, setSubscriptionPendingCancellation] =
-    useState<BillingCenterSubscription | null>(null)
   const [didAttemptStripeResync, setDidAttemptStripeResync] = useState(false)
 
   const billingCenter = billingCenterQuery.data
-  const pricingPlans =
-    pricingCatalogQuery.data?.plans.filter(
-      (plan) => plan.planType === "paid" && plan.active
-    ) ?? []
+  const baseManagementPricingPlans = ensureManagementPlanOptions(
+    pricingCatalogQuery.data?.plans.filter((plan) => plan.active) ?? []
+  )
   const selectedSubscription = subscriptionDialogState
     ? (billingCenter?.subscriptions.find(
         (subscription) =>
@@ -1235,16 +1496,41 @@ export function BillingSettingsView({
           subscriptionDialogState.stripeSubscriptionId
       ) ?? null)
     : null
+  const managementCurrentInterval =
+    subscriptionDialogState?.interval ??
+    selectedSubscription?.billingInterval ??
+    billingCenter?.subscriptions[0]?.billingInterval ??
+    "month"
+  const managementPricingPlans = orderManagementPlanOptions({
+    currentInterval: managementCurrentInterval,
+    currentPlanKey:
+      selectedSubscription?.planKey ??
+      billingCenter?.subscriptions[0]?.planKey ??
+      null,
+    plans: baseManagementPricingPlans.map((plan) =>
+      selectedSubscription &&
+      plan.planKey === selectedSubscription.planKey &&
+      managementCurrentInterval !== selectedSubscription.billingInterval
+        ? { ...plan, relationship: "switch" as const }
+        : plan
+    ),
+  })
   const selectedSubscriptionPlan =
-    pricingPlans.find(
+    managementPricingPlans.find(
       (plan) => plan.planKey === subscriptionDialogState?.planKey
     ) ?? null
+  const currentSubscriptionPlan =
+    selectedSubscription
+      ? (baseManagementPricingPlans.find(
+          (plan) => plan.planKey === selectedSubscription.planKey
+        ) ?? null)
+      : null
 
   useEffect(() => {
     if (
       subscriptionDialogState &&
-      pricingPlans.length > 0 &&
-      !pricingPlans.some(
+      managementPricingPlans.length > 0 &&
+      !managementPricingPlans.some(
         (plan) => plan.planKey === subscriptionDialogState.planKey
       )
     ) {
@@ -1252,12 +1538,13 @@ export function BillingSettingsView({
         current
           ? {
               ...current,
-              planKey: pricingPlans[0]?.planKey ?? current.planKey,
+              planKey:
+                managementPricingPlans[0]?.planKey ?? current.planKey,
             }
           : current
       )
     }
-  }, [pricingPlans, subscriptionDialogState])
+  }, [managementPricingPlans, subscriptionDialogState])
 
   useEffect(() => {
     if (
@@ -1382,9 +1669,9 @@ export function BillingSettingsView({
 
   function openSubscriptionDialog(subscription: BillingCenterSubscription) {
     const initialPlanKey =
-      pricingPlans.find((plan) => plan.planKey === subscription.planKey)
+      managementPricingPlans.find((plan) => plan.planKey === subscription.planKey)
         ?.planKey ??
-      pricingPlans[0]?.planKey ??
+      managementPricingPlans[0]?.planKey ??
       subscription.planKey
 
     setSubscriptionDialogState({
@@ -1426,6 +1713,7 @@ export function BillingSettingsView({
       const result = await updateSubscription.mutateAsync({
         interval: subscriptionDialogState.interval,
         planKey: subscriptionDialogState.planKey,
+        prorationDate: subscriptionChangePreview?.prorationDate ?? undefined,
         stripeSubscriptionId: selectedSubscription.stripeSubscriptionId,
       })
 
@@ -1435,6 +1723,7 @@ export function BillingSettingsView({
         result.secretType &&
         result.secretType !== "none"
       ) {
+        setSubscriptionChangePreview(null)
         setSubscriptionConfirmation({
           clientSecret: result.clientSecret,
           secretType: result.secretType,
@@ -1474,30 +1763,6 @@ export function BillingSettingsView({
         error instanceof BillingClientError
           ? error.message
           : "Unable to resume the subscription."
-      )
-    }
-  }
-
-  async function handleConfirmSubscriptionCancellation() {
-    if (!subscriptionPendingCancellation) {
-      return
-    }
-
-    try {
-      await cancelSubscription.mutateAsync({
-        stripeSubscriptionId:
-          subscriptionPendingCancellation.stripeSubscriptionId,
-      })
-      setSubscriptionPendingCancellation(null)
-      setSubscriptionDialogState(null)
-      setSubscriptionChangePreview(null)
-      setSubscriptionConfirmation(null)
-      toast.success("Subscription cancellation scheduled.")
-    } catch (error) {
-      toast.error(
-        error instanceof BillingClientError
-          ? error.message
-          : "Unable to schedule the subscription cancellation."
       )
     }
   }
@@ -1628,9 +1893,6 @@ export function BillingSettingsView({
             setSubscriptionChangePreview(null)
             setSubscriptionConfirmation(null)
           }}
-          onConfirmCancellation={() =>
-            setSubscriptionPendingCancellation(selectedSubscription)
-          }
           onIntervalChange={(interval) => {
             setSubscriptionDialogState((current) =>
               current ? { ...current, interval } : current
@@ -1645,18 +1907,30 @@ export function BillingSettingsView({
             setSubscriptionChangePreview(null)
             setSubscriptionConfirmation(null)
           }}
-          onPreview={() => void handlePreviewSubscriptionUpdate()}
+          onPrepareChange={() => void handlePreviewSubscriptionUpdate()}
           onResume={() => void handleResumeSubscription()}
-          onSubmitChange={() => void handleApplySubscriptionUpdate()}
-          preview={subscriptionChangePreview}
           previewPending={previewSubscriptionChange.isPending}
-          pricingPlans={pricingPlans}
+          pricingPlans={managementPricingPlans}
           profileEmail={billingCenter.billingProfile.email}
           reactivatePending={reactivateSubscription.isPending}
           resolvedTheme={resolvedTheme}
           selectedPlan={selectedSubscriptionPlan}
           state={subscriptionDialogState}
           subscription={selectedSubscription}
+        />
+      ) : null}
+
+      {subscriptionChangePreview &&
+      selectedSubscription &&
+      selectedSubscriptionPlan ? (
+        <SubscriptionChangeConfirmationDialog
+          currentPlan={currentSubscriptionPlan}
+          onClose={() => setSubscriptionChangePreview(null)}
+          onConfirm={() => void handleApplySubscriptionUpdate()}
+          pending={updateSubscription.isPending}
+          preview={subscriptionChangePreview}
+          subscription={selectedSubscription}
+          targetPlan={selectedSubscriptionPlan}
         />
       ) : null}
 
@@ -1694,49 +1968,6 @@ export function BillingSettingsView({
               }}
             >
               {removePaymentMethod.isPending ? "Removing..." : "Remove"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        onOpenChange={(open) =>
-          !open && setSubscriptionPendingCancellation(null)
-        }
-        open={Boolean(subscriptionPendingCancellation)}
-      >
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader className="items-start text-left">
-            <AlertDialogTitle>Cancel at period end</AlertDialogTitle>
-            <AlertDialogDescription>
-              Stripe will keep the current subscription active until the end of
-              the paid period, then stop renewal.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {subscriptionPendingCancellation ? (
-            <div className="rounded-lg border border-border/70 bg-muted/10 px-4 py-4 text-sm">
-              <div className="font-medium">
-                {subscriptionPendingCancellation.productName}
-              </div>
-              <div className="mt-1 text-muted-foreground">
-                {subscriptionPendingCancellation.currentPeriodEnd
-                  ? `Access will remain active until ${formatDateLabel(subscriptionPendingCancellation.currentPeriodEnd)}.`
-                  : "Stripe did not return a current period end for this subscription."}
-              </div>
-            </div>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep subscription</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={cancelSubscription.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                void handleConfirmSubscriptionCancellation()
-              }}
-            >
-              {cancelSubscription.isPending
-                ? "Scheduling..."
-                : "Schedule cancellation"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

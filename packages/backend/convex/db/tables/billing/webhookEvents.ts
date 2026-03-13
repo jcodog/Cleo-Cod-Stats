@@ -6,7 +6,11 @@ export const billingWebhookEvents = defineTable({
   eventType: v.string(),
 
   receivedAt: v.number(),
+  deliveryCount: v.optional(v.number()),
+  lastDeliveryAt: v.optional(v.number()),
   processedAt: v.optional(v.number()),
+  processingAttemptCount: v.optional(v.number()),
+  processingClaimedAt: v.optional(v.number()),
   processingStatus: v.union(
     v.literal("received"),
     v.literal("processing"),
@@ -21,6 +25,11 @@ export const billingWebhookEvents = defineTable({
   subscriptionId: v.optional(v.string()),
   invoiceId: v.optional(v.string()),
   paymentIntentId: v.optional(v.string()),
+
+  payloadBackfilledAt: v.optional(v.number()),
+  payloadJson: v.optional(v.string()),
+  payloadUnavailableAt: v.optional(v.number()),
+  payloadUnavailableReason: v.optional(v.string()),
 
   safeSummary: v.string(),
   createdAt: v.number(),

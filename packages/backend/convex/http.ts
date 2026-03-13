@@ -136,25 +136,32 @@ http.route({
         eventType: event.type,
         invoiceId: objectIds.invoiceId,
         paymentIntentId: objectIds.paymentIntentId,
+        payloadJson: JSON.stringify(event),
         safeSummary: buildWebhookSafeSummary(event),
         stripeEventId: event.id,
         subscriptionId: objectIds.subscriptionId,
       }
     );
 
-    if (
-      ledgerEntry.alreadyExists &&
-      (ledgerEntry.processingStatus === "processed" ||
-        ledgerEntry.processingStatus === "ignored")
-    ) {
-      return new Response(JSON.stringify({ ok: true, duplicate: true }), {
-        status: 200,
-      });
-    }
+    const processingClaim = await ctx.runMutation(
+      internal.mutations.billing.state.claimWebhookEventProcessing,
+      {
+        stripeEventId: event.id,
+      }
+    );
 
-    await ctx.runMutation(internal.mutations.billing.state.markWebhookEventProcessing, {
-      stripeEventId: event.id,
-    });
+    if (!processingClaim.shouldProcess) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          duplicate: ledgerEntry.alreadyExists,
+          reason: processingClaim.reason,
+        }),
+        {
+          status: 200,
+        }
+      );
+    }
 
     try {
       switch (event.type) {

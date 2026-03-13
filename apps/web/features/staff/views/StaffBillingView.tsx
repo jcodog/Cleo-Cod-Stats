@@ -4,6 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
 import { IconDotsVertical, IconPlugConnected } from "@tabler/icons-react"
 import type {
+  StaffAuditLogEntry,
   StaffBillingDashboard,
   StaffBillingCustomerRecord,
   StaffBillingFeatureRecord,
@@ -33,12 +34,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@workspace/ui/components/chart"
 import {
   Combobox,
   ComboboxChip,
@@ -86,10 +81,14 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { Textarea } from "@workspace/ui/components/textarea"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import { toast } from "sonner"
 
 import { StaffDataTable } from "@/features/staff/components/StaffDataTable"
+import {
+  StaffMultiFilterCombobox,
+  type StaffFilterGroup,
+  type StaffFilterSelection,
+} from "@/features/staff/components/StaffMultiFilterCombobox"
 import {
   getStaffBillingSectionConfig,
   type StaffBillingSection,
@@ -343,33 +342,6 @@ function BillingAccessSourceBadge({
   return <Badge variant="outline">no access</Badge>
 }
 
-function WebhookStatusBadge({
-  status,
-}: {
-  status: "failed" | "ignored" | "processed" | "processing" | "received"
-}) {
-  if (status === "processed") {
-    return <Badge variant="secondary">processed</Badge>
-  }
-
-  if (status === "failed") {
-    return <Badge variant="destructive">failed</Badge>
-  }
-
-  return <Badge variant="outline">{status}</Badge>
-}
-
-function formatDayLabel(value: number) {
-  if (!Number.isFinite(value)) {
-    return "Unknown"
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-  }).format(value)
-}
-
 function matchesUserLookup(user: StaffBillingUserLookupRecord, query: string) {
   const normalizedQuery = query.trim().toLowerCase()
 
@@ -608,6 +580,11 @@ export function StaffBillingView({
     })
   const [creatorGrantConfirmationState, setCreatorGrantConfirmationState] =
     useState<CreatorGrantConfirmationState | null>(null)
+  const [catalogAuditFilters, setCatalogAuditFilters] =
+    useState<StaffFilterSelection>({
+      action: [],
+      result: [],
+    })
   const [isSubmittingCreatorGrant, setIsSubmittingCreatorGrant] =
     useState(false)
   const billingMutation = useStaffMutation<
@@ -690,16 +667,63 @@ export function StaffBillingView({
     currentGrant: creatorGrantRecordsByUserId.get(user.userId) ?? null,
     user,
   }))
-  const webhookChartConfig = {
-    failedCount: {
-      color: "hsl(12 76% 55%)",
-      label: "Failed",
+  const auditActionCounts = new Map<string, number>()
+  const auditResultCounts = new Map<StaffAuditLogEntry["result"], number>()
+
+  for (const log of data.auditLogs) {
+    auditActionCounts.set(
+      log.action,
+      (auditActionCounts.get(log.action) ?? 0) + 1
+    )
+    auditResultCounts.set(
+      log.result,
+      (auditResultCounts.get(log.result) ?? 0) + 1
+    )
+  }
+
+  const catalogAuditFilterGroups: StaffFilterGroup[] = [
+    {
+      id: "action",
+      label: "Action",
+      options: Array.from(auditActionCounts.entries())
+        .sort((left, right) => left[0].localeCompare(right[0]))
+        .map(([action, count]) => ({
+          description: `${count} audit entr${count === 1 ? "y" : "ies"}`,
+          label: action,
+          value: action,
+        })),
     },
-    processedCount: {
-      color: "hsl(216 89% 56%)",
-      label: "Processed",
+    {
+      id: "result",
+      label: "Result",
+      options: (["error", "warning", "success"] as const)
+        .filter((result) => auditResultCounts.has(result))
+        .map((result) => ({
+          description: `${auditResultCounts.get(result)} audit entr${
+            auditResultCounts.get(result) === 1 ? "y" : "ies"
+          }`,
+          label: result,
+          value: result,
+        })),
     },
-  } satisfies ChartConfig
+  ]
+  const filteredCatalogAuditLogs = data.auditLogs.filter((log) => {
+    if (
+      catalogAuditFilters.action.length > 0 &&
+      !catalogAuditFilters.action.includes(log.action)
+    ) {
+      return false
+    }
+
+    if (
+      catalogAuditFilters.result.length > 0 &&
+      !catalogAuditFilters.result.includes(log.result)
+    ) {
+      return false
+    }
+
+    return true
+  })
 
   const planColumns: Array<ColumnDef<StaffBillingPlanRecord>> = [
     {
@@ -1036,6 +1060,55 @@ export function StaffBillingView({
       header: "Stripe customer",
     },
   ]
+  const catalogAuditColumns: Array<ColumnDef<StaffAuditLogEntry>> = [
+    {
+      accessorKey: "createdAt",
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">
+            {formatDateTime(row.original.createdAt)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.actorName} · {row.original.actorRole}
+          </span>
+        </div>
+      ),
+      header: "When",
+    },
+    {
+      accessorKey: "action",
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">{row.original.action}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.entityLabel ?? row.original.entityType}
+          </span>
+        </div>
+      ),
+      header: "Action",
+    },
+    {
+      accessorKey: "summary",
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span>{row.original.summary}</span>
+          {row.original.details ? (
+            <span className="text-xs text-muted-foreground">
+              {row.original.details}
+            </span>
+          ) : null}
+        </div>
+      ),
+      header: "Summary",
+    },
+    {
+      accessorKey: "result",
+      cell: ({ row }) => (
+        <BillingAuditResultBadge result={row.original.result} />
+      ),
+      header: "Result",
+    },
+  ]
   const activeCustomerCount = data.activeCustomerCount
   const syncAttentionPlanCount = data.plans.filter(
     (plan) => plan.syncStatus === "attention"
@@ -1058,7 +1131,6 @@ export function StaffBillingView({
   const recentBillingActivity = data.auditLogs.slice(0, 8)
   const recentSubscriptionRows = data.subscriptions.slice(0, 8)
   const attentionSubscriptions = data.attentionSubscriptions.slice(0, 8)
-  const recentWebhookEvents = data.webhookEvents.slice(0, 8)
   const activeCreatorGrantCount = data.creatorGrants.filter(
     (grant) =>
       grant.active &&
@@ -1615,160 +1687,12 @@ export function StaffBillingView({
               value={activeCreatorGrantCount}
             />
             <MetricCard
-              label="Webhook failures"
-              value={data.webhookMetrics.failedCount}
+              label="Scheduled cancellations"
+              value={cancelAtPeriodEndCount}
             />
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Webhook health</CardTitle>
-                <CardDescription>
-                  Reconciliation health across recent Stripe webhook traffic.
-                  Failures and processing backlog should be triaged before local
-                  billing state drifts.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-6">
-                {data.webhookMetrics.timeline.length > 0 ? (
-                  <ChartContainer
-                    className="h-64 w-full"
-                    config={webhookChartConfig}
-                  >
-                    <BarChart data={data.webhookMetrics.timeline}>
-                      <CartesianGrid vertical={false} />
-                      <XAxis
-                        axisLine={false}
-                        dataKey="dayStart"
-                        minTickGap={24}
-                        tickFormatter={(value: number | string) =>
-                          formatDayLabel(Number(value))
-                        }
-                        tickLine={false}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            formatter={(value, name) => (
-                              <>
-                                <span className="text-muted-foreground">
-                                  {name === "failedCount"
-                                    ? "Failed"
-                                    : "Processed"}
-                                </span>
-                                <span className="ml-auto font-mono font-medium">
-                                  {Number(value).toLocaleString()}
-                                </span>
-                              </>
-                            )}
-                            labelFormatter={(value: number | string) =>
-                              formatDayLabel(Number(value))
-                            }
-                          />
-                        }
-                      />
-                      <Bar
-                        dataKey="processedCount"
-                        fill="var(--color-processedCount)"
-                        radius={[8, 8, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="failedCount"
-                        fill="var(--color-failedCount)"
-                        radius={[8, 8, 0, 0]}
-                      />
-                    </BarChart>
-                  </ChartContainer>
-                ) : (
-                  <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-10 text-sm text-muted-foreground">
-                    No webhook deliveries have been recorded yet.
-                  </div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-                    <div className="text-sm font-medium">
-                      Processing posture
-                    </div>
-                    <div className="mt-3 grid gap-2 text-sm">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Processed</span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.processedCount}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Failed</span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.failedCount}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Processing
-                        </span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.processingCount}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Ignored</span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.ignoredCount}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-                    <div className="text-sm font-medium">
-                      Latest delivery state
-                    </div>
-                    <div className="mt-3 grid gap-2 text-sm">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Last received
-                        </span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.lastReceivedAt
-                            ? formatDateTime(data.webhookMetrics.lastReceivedAt)
-                            : "Not yet"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Last processed
-                        </span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.lastProcessedAt
-                            ? formatDateTime(
-                                data.webhookMetrics.lastProcessedAt
-                              )
-                            : "Not yet"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Raw received rows
-                        </span>
-                        <span className="font-medium">
-                          {data.webhookMetrics.receivedCount}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Cancel at period end
-                        </span>
-                        <span className="font-medium">
-                          {cancelAtPeriodEndCount}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
+          <div className="grid gap-6">
             <Card className="border-border/70">
               <CardHeader>
                 <CardTitle>Customer footprint</CardTitle>
@@ -1840,131 +1764,71 @@ export function StaffBillingView({
             </Card>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Attention-needed subscriptions</CardTitle>
-                <CardDescription>
-                  Payment failures and action-required subscriptions that
-                  support staff should watch most closely.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="rounded-lg border border-border/70 p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Attention</TableHead>
-                      <TableHead>Next date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attentionSubscriptions.length > 0 ? (
-                      attentionSubscriptions.map((subscription) => (
-                        <TableRow key={subscription.stripeSubscriptionId}>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <span className="font-medium">
-                                {subscription.userName}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {subscription.email ?? subscription.clerkUserId}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{subscription.planKey}</TableCell>
-                          <TableCell>
-                            <BillingSubscriptionStatusBadge
-                              status={subscription.status}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <BillingAttentionBadge
-                              status={subscription.attentionStatus ?? "none"}
-                            />
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {subscription.currentPeriodEnd
-                              ? formatDateTime(subscription.currentPeriodEnd)
-                              : "Not set"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          className="py-8 text-center text-sm text-muted-foreground"
-                          colSpan={5}
-                        >
-                          No subscriptions currently require support attention.
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Attention-needed subscriptions</CardTitle>
+              <CardDescription>
+                Payment failures and action-required subscriptions that support
+                staff should watch most closely.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="rounded-lg border border-border/70 p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Attention</TableHead>
+                    <TableHead>Next date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attentionSubscriptions.length > 0 ? (
+                    attentionSubscriptions.map((subscription) => (
+                      <TableRow key={subscription.stripeSubscriptionId}>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">
+                              {subscription.userName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {subscription.email ?? subscription.clerkUserId}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{subscription.planKey}</TableCell>
+                        <TableCell>
+                          <BillingSubscriptionStatusBadge
+                            status={subscription.status}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <BillingAttentionBadge
+                            status={subscription.attentionStatus ?? "none"}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {subscription.currentPeriodEnd
+                            ? formatDateTime(subscription.currentPeriodEnd)
+                            : "Not set"}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Recent webhook events</CardTitle>
-                <CardDescription>
-                  Safe summaries from the event ledger for reconciliation
-                  debugging.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="rounded-lg border border-border/70 p-0">
-                <Table>
-                  <TableHeader>
+                    ))
+                  ) : (
                     <TableRow>
-                      <TableHead>When</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Summary</TableHead>
+                      <TableCell
+                        className="py-8 text-center text-sm text-muted-foreground"
+                        colSpan={5}
+                      >
+                        No subscriptions currently require support attention.
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentWebhookEvents.length > 0 ? (
-                      recentWebhookEvents.map((event) => (
-                        <TableRow key={event.id}>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatDateTime(event.receivedAt)}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {event.eventType}
-                          </TableCell>
-                          <TableCell>
-                            <WebhookStatusBadge
-                              status={event.processingStatus}
-                            />
-                          </TableCell>
-                          <TableCell className="max-w-lg text-sm whitespace-normal text-muted-foreground">
-                            {event.safeSummary}
-                            {event.errorMessage ? (
-                              <span className="block text-destructive">
-                                {event.errorMessage}
-                              </span>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          className="py-8 text-center text-sm text-muted-foreground"
-                          colSpan={4}
-                        >
-                          No webhook events are available yet.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           <Card className="border-border/70">
             <CardHeader>
@@ -2383,44 +2247,34 @@ export function StaffBillingView({
               operations are captured here.
             </CardDescription>
           </CardHeader>
-          <CardContent className="rounded-lg border border-border/70 p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Summary</TableHead>
-                  <TableHead>Result</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.auditLogs.length > 0 ? (
-                  data.auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDateTime(log.createdAt)}
-                      </TableCell>
-                      <TableCell>{log.action}</TableCell>
-                      <TableCell className="max-w-xl whitespace-normal">
-                        {log.summary}
-                      </TableCell>
-                      <TableCell>
-                        <BillingAuditResultBadge result={log.result} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      className="py-8 text-center text-sm text-muted-foreground"
-                      colSpan={4}
-                    >
-                      No audit entries are available yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent>
+            <StaffDataTable
+              columns={catalogAuditColumns}
+              data={filteredCatalogAuditLogs}
+              emptyDescription={
+                data.auditLogs.length > 0
+                  ? "Try adjusting the search or filters."
+                  : "Catalog billing actions will appear here once staff changes are recorded."
+              }
+              emptyTitle={
+                data.auditLogs.length > 0
+                  ? "No audit entries match"
+                  : "No audit entries yet"
+              }
+              getRowId={(row) => row.id}
+              searchPlaceholder="Search actions or summaries"
+              toolbar={
+                <div className="w-full xl:w-[38rem]">
+                  <StaffMultiFilterCombobox
+                    emptyLabel="No audit filters match this search."
+                    groups={catalogAuditFilterGroups}
+                    onChange={setCatalogAuditFilters}
+                    placeholder="Filter select"
+                    value={catalogAuditFilters}
+                  />
+                </div>
+              }
+            />
           </CardContent>
         </Card>
       ) : null}

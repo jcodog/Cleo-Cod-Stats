@@ -28,6 +28,7 @@ export const createSubscriptionIntentSchema = z.object({
 export const subscriptionChangeSchema = z.object({
   interval: billingIntervalSchema,
   planKey: z.union([billingPlanKeySchema, z.literal("free")]),
+  prorationDate: z.number().int().positive().optional(),
   stripeSubscriptionId: stripeSubscriptionIdSchema.optional(),
 })
 

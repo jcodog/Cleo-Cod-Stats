@@ -225,6 +225,42 @@ export type StaffWebhookMetrics = {
   timeline: StaffWebhookTimelinePoint[]
 }
 
+export type StaffWebhookPayloadState =
+  | "available"
+  | "missing"
+  | "unavailable"
+
+export type StaffWebhookLedgerRecord = {
+  customerId?: string
+  errorMessage?: string
+  eventType: string
+  id: string
+  invoiceId?: string
+  payloadState: StaffWebhookPayloadState
+  payloadUnavailableReason?: string
+  paymentIntentId?: string
+  processedAt?: number
+  processingStatus: "failed" | "ignored" | "processed" | "processing" | "received"
+  receivedAt: number
+  safeSummary: string
+  stripeEventId: string
+  subscriptionId?: string
+}
+
+export type StaffWebhookEventDetail = StaffWebhookLedgerRecord & {
+  payloadJson?: string
+}
+
+export type StaffWebhookLedgerDashboard = {
+  events: StaffWebhookLedgerRecord[]
+  generatedAt: number
+  metrics: StaffWebhookMetrics & {
+    missingPayloadCount: number
+    totalCount: number
+    unavailablePayloadCount: number
+  }
+}
+
 export type StaffBillingSyncSummary = {
   result: AuditLogResult
   summary: string

@@ -1,5 +1,6 @@
 "use node"
 
+import type Stripe from "stripe"
 import { v } from "convex/values"
 import { action } from "../../_generated/server"
 import { internal } from "../../_generated/api"
@@ -22,6 +23,9 @@ import type {
   StaffMutationResponse,
   StaffSubscriptionImpactRow,
   StaffWebhookEventRecord,
+  StaffWebhookEventDetail,
+  StaffWebhookLedgerDashboard,
+  StaffWebhookLedgerRecord,
   StaffWebhookMetrics,
   StaffWebhookTimelinePoint,
 } from "../../lib/staffTypes"
@@ -543,6 +547,199 @@ function buildWebhookEventRows(args: {
       full: args.fullIdentifiers,
     }),
   }))
+}
+
+function resolveWebhookPayloadState(args: {
+  hasPayloadJson?: boolean
+  payloadJson?: string
+  payloadUnavailableAt?: number
+}) {
+  if (args.hasPayloadJson || args.payloadJson !== undefined) {
+    return "available" as const
+  }
+
+  if (args.payloadUnavailableAt !== undefined) {
+    return "unavailable" as const
+  }
+
+  return "missing" as const
+}
+
+function buildWebhookLedgerRows(args: {
+  events: Array<{
+    _id: string
+    customerId?: string
+    errorMessage?: string
+    eventType: string
+    hasPayloadJson?: boolean
+    invoiceId?: string
+    paymentIntentId?: string
+    payloadUnavailableAt?: number
+    payloadUnavailableReason?: string
+    processedAt?: number
+    processingStatus:
+      | "failed"
+      | "ignored"
+      | "processed"
+      | "processing"
+      | "received"
+    receivedAt: number
+    safeSummary: string
+    stripeEventId: string
+    subscriptionId?: string
+  }>
+  fullIdentifiers: boolean
+}) {
+  return args.events.map<StaffWebhookLedgerRecord>((event) => ({
+    customerId: maskBillingIdentifier(event.customerId, {
+      full: args.fullIdentifiers,
+    }),
+    errorMessage: event.errorMessage,
+    eventType: event.eventType,
+    id: event._id,
+    invoiceId: maskBillingIdentifier(event.invoiceId, {
+      full: args.fullIdentifiers,
+    }),
+    payloadState: resolveWebhookPayloadState({
+      hasPayloadJson: event.hasPayloadJson,
+      payloadUnavailableAt: event.payloadUnavailableAt,
+    }),
+    payloadUnavailableReason: event.payloadUnavailableReason,
+    paymentIntentId: maskBillingIdentifier(event.paymentIntentId, {
+      full: args.fullIdentifiers,
+    }),
+    processedAt: event.processedAt,
+    processingStatus: event.processingStatus,
+    receivedAt: event.receivedAt,
+    safeSummary: event.safeSummary,
+    stripeEventId:
+      maskBillingIdentifier(event.stripeEventId, {
+        full: args.fullIdentifiers,
+      }) ?? event.stripeEventId,
+    subscriptionId: maskBillingIdentifier(event.subscriptionId, {
+      full: args.fullIdentifiers,
+    }),
+  }))
+}
+
+function buildWebhookEventDetail(args: {
+  event: {
+    _id: string
+    customerId?: string
+    errorMessage?: string
+    eventType: string
+    invoiceId?: string
+    paymentIntentId?: string
+    payloadJson?: string
+    payloadUnavailableAt?: number
+    payloadUnavailableReason?: string
+    processedAt?: number
+    processingStatus:
+      | "failed"
+      | "ignored"
+      | "processed"
+      | "processing"
+      | "received"
+    receivedAt: number
+    safeSummary: string
+    stripeEventId: string
+    subscriptionId?: string
+  }
+  fullIdentifiers: boolean
+}) {
+  return {
+    customerId: maskBillingIdentifier(args.event.customerId, {
+      full: args.fullIdentifiers,
+    }),
+    errorMessage: args.event.errorMessage,
+    eventType: args.event.eventType,
+    id: args.event._id,
+    invoiceId: maskBillingIdentifier(args.event.invoiceId, {
+      full: args.fullIdentifiers,
+    }),
+    payloadJson: args.event.payloadJson,
+    payloadState: resolveWebhookPayloadState({
+      payloadJson: args.event.payloadJson,
+      payloadUnavailableAt: args.event.payloadUnavailableAt,
+    }),
+    payloadUnavailableReason: args.event.payloadUnavailableReason,
+    paymentIntentId: maskBillingIdentifier(args.event.paymentIntentId, {
+      full: args.fullIdentifiers,
+    }),
+    processedAt: args.event.processedAt,
+    processingStatus: args.event.processingStatus,
+    receivedAt: args.event.receivedAt,
+    safeSummary: args.event.safeSummary,
+    stripeEventId:
+      maskBillingIdentifier(args.event.stripeEventId, {
+        full: args.fullIdentifiers,
+      }) ?? args.event.stripeEventId,
+    subscriptionId: maskBillingIdentifier(args.event.subscriptionId, {
+      full: args.fullIdentifiers,
+    }),
+  } satisfies StaffWebhookEventDetail
+}
+
+function sanitizeWebhookPayloadBackfillError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message.slice(0, 300)
+  }
+
+  return "Stripe no longer exposes this webhook event payload."
+}
+
+function isWebhookPayloadUnavailableError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    error.statusCode === 404
+  )
+}
+
+function serializeStripeEventPayload(event: Stripe.Event) {
+  return JSON.stringify(event)
+}
+
+async function backfillWebhookEventPayload(args: {
+  ctx: Parameters<typeof requireAuthorizedStaffAction>[0]
+  stripeEventId: string
+}) {
+  const stripe = getStripe()
+
+  try {
+    const event = await stripe.events.retrieve(args.stripeEventId)
+
+    await args.ctx.runMutation(
+      internal.mutations.billing.state.storeWebhookEventPayload,
+      {
+        payloadBackfilledAt: Date.now(),
+        payloadJson: serializeStripeEventPayload(event),
+        stripeEventId: args.stripeEventId,
+      }
+    )
+
+    return "backfilled" as const
+  } catch (error) {
+    if (isWebhookPayloadUnavailableError(error)) {
+      await args.ctx.runMutation(
+        internal.mutations.billing.state.markWebhookEventPayloadUnavailable,
+        {
+          reason: sanitizeWebhookPayloadBackfillError(error),
+          stripeEventId: args.stripeEventId,
+        }
+      )
+      return "unavailable" as const
+    }
+
+    console.error("Stripe webhook payload backfill failed", {
+      error:
+        error instanceof Error ? error.message : "Unknown Stripe retrieval error",
+      stripeEventId: args.stripeEventId,
+    })
+
+    return "failed" as const
+  }
 }
 
 function buildUserDirectory(args: {
@@ -1176,6 +1373,161 @@ export const getDashboard = action({
     )
 
     return buildBillingDashboard(records, operator.actorRole)
+  },
+})
+
+export const getWebhookDashboard = action({
+  args: {},
+  handler: async (ctx): Promise<StaffWebhookLedgerDashboard> => {
+    const operator = await requireAuthorizedStaffAction(ctx, "admin")
+    const webhookEvents = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingWebhookLedgerRecords,
+      {}
+    )
+    const webhookMetrics = buildWebhookMetrics({
+      events: webhookEvents,
+    })
+
+    return {
+      events: buildWebhookLedgerRows({
+        events: webhookEvents,
+        fullIdentifiers: canViewFullBillingIdentifiers(operator.actorRole),
+      }),
+      generatedAt: Date.now(),
+      metrics: {
+        ...webhookMetrics,
+        missingPayloadCount: webhookEvents.filter(
+          (event: (typeof webhookEvents)[number]) =>
+            !event.hasPayloadJson && event.payloadUnavailableAt === undefined
+        ).length,
+        totalCount: webhookEvents.length,
+        unavailablePayloadCount: webhookEvents.filter(
+          (event: (typeof webhookEvents)[number]) =>
+            event.payloadUnavailableAt !== undefined
+        ).length,
+      },
+    } satisfies StaffWebhookLedgerDashboard
+  },
+})
+
+export const getWebhookEventDetail = action({
+  args: {
+    eventId: v.id("billingWebhookEvents"),
+  },
+  handler: async (ctx, args): Promise<StaffWebhookEventDetail> => {
+    const operator = await requireAuthorizedStaffAction(ctx, "admin")
+    let event = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingWebhookEventById,
+      {
+        eventId: args.eventId,
+      }
+    )
+
+    if (!event) {
+      throw new Error("The selected webhook event was not found.")
+    }
+
+    if (
+      event.payloadJson === undefined &&
+      event.payloadUnavailableAt === undefined
+    ) {
+      await backfillWebhookEventPayload({
+        ctx,
+        stripeEventId: event.stripeEventId,
+      })
+
+      event = await ctx.runQuery(
+        internal.queries.staff.internal.getBillingWebhookEventById,
+        {
+          eventId: args.eventId,
+        }
+      )
+    }
+
+    if (!event) {
+      throw new Error("The selected webhook event was not found.")
+    }
+
+    return buildWebhookEventDetail({
+      event,
+      fullIdentifiers: canViewFullBillingIdentifiers(operator.actorRole),
+    })
+  },
+})
+
+export const refreshWebhookLedger = action({
+  args: {},
+  handler: async (ctx): Promise<StaffMutationResponse> => {
+    const operator = await requireAuthorizedStaffAction(ctx, "admin")
+    const webhookEvents = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingWebhookLedgerRecords,
+      {}
+    )
+    const candidates = webhookEvents.filter(
+      (event: (typeof webhookEvents)[number]) =>
+        !event.hasPayloadJson && event.payloadUnavailableAt === undefined
+    )
+    const maxBackfills = 25
+    let backfilledCount = 0
+    let unavailableCount = 0
+    let failedCount = 0
+
+    for (const event of candidates.slice(0, maxBackfills)) {
+      const result = await backfillWebhookEventPayload({
+        ctx,
+        stripeEventId: event.stripeEventId,
+      })
+
+      if (result === "backfilled") {
+        backfilledCount += 1
+        continue
+      }
+
+      if (result === "unavailable") {
+        unavailableCount += 1
+        continue
+      }
+
+      if (result === "failed") {
+        failedCount += 1
+      }
+    }
+
+    const remainingCount = Math.max(candidates.length - maxBackfills, 0)
+    const summary =
+      candidates.length === 0
+        ? "Webhook ledger refreshed. No missing payloads required backfill."
+        : `Webhook ledger refreshed. ${backfilledCount} payload(s) backfilled, ${unavailableCount} marked unavailable, ${failedCount} failed, ${remainingCount} still queued.`
+
+    await recordAuditLog({
+      action: "billing.webhooks.refreshed",
+      actorClerkUserId: operator.actorClerkUserId,
+      actorName: operator.actorDisplayName,
+      actorRole: operator.actorRole,
+      ctx,
+      details: JSON.stringify(
+        {
+          backfilledCount,
+          candidateCount: candidates.length,
+          failedCount,
+          maxBackfills,
+          remainingCount,
+          unavailableCount,
+        },
+        null,
+        2
+      ),
+      entityId: "webhook-ledger",
+      entityLabel: "Stripe webhook ledger",
+      entityType: "billingWebhookLedger",
+      result: failedCount > 0 ? "warning" : "success",
+      summary,
+    })
+
+    return {
+      summary,
+      syncSummary: null,
+    }
   },
 })
 

@@ -11,6 +11,8 @@ import {
   type Icon,
 } from "@tabler/icons-react"
 
+import type { RequiredStaffRole } from "@workspace/backend/convex/lib/staffRoles"
+
 export type StaffBreadcrumbItem = {
   href?: string
   label: string
@@ -27,6 +29,7 @@ export type StaffBillingSection =
   | "subscriptions-customers"
   | "subscriptions-active"
   | "subscriptions-creator-access"
+  | "subscriptions-audit-log"
 
 export type StaffBillingSectionConfig = {
   breadcrumb: StaffBreadcrumbItem[]
@@ -36,15 +39,16 @@ export type StaffBillingSectionConfig = {
   icon: Icon
   key: StaffBillingSection
   label: string
+  minimumRole: RequiredStaffRole
   title: string
 }
 
-const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionConfig> = {
+const STAFF_BILLING_SECTIONS: Record<
+  StaffBillingSection,
+  StaffBillingSectionConfig
+> = {
   "catalog-overview": {
-    breadcrumb: [
-      { label: "Catalog" },
-      { label: "Overview" },
-    ],
+    breadcrumb: [{ label: "Catalog" }, { label: "Overview" }],
     description:
       "Review plan coverage, feature posture, and Stripe catalog sync state for the managed catalog.",
     exact: true,
@@ -52,6 +56,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconLayoutDashboard,
     key: "catalog-overview",
     label: "Overview",
+    minimumRole: "staff",
     title: "Catalog Overview",
   },
   "catalog-plans": {
@@ -65,6 +70,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconReceipt2,
     key: "catalog-plans",
     label: "Plans",
+    minimumRole: "staff",
     title: "Plans",
   },
   "catalog-features": {
@@ -78,6 +84,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconStars,
     key: "catalog-features",
     label: "Features",
+    minimumRole: "staff",
     title: "Features",
   },
   "catalog-assignments": {
@@ -91,6 +98,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconArrowsExchange,
     key: "catalog-assignments",
     label: "Assignments",
+    minimumRole: "staff",
     title: "Assignments",
   },
   "catalog-operations": {
@@ -104,26 +112,25 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconSettingsBolt,
     key: "catalog-operations",
     label: "Operations",
+    minimumRole: "staff",
     title: "Operations",
   },
   "catalog-audit": {
     breadcrumb: [
       { href: "/staff/catalog", label: "Catalog" },
-      { label: "Audit" },
+      { label: "Audit log" },
     ],
     description:
       "Inspect billing audit records for catalog edits, sync runs, and destructive actions.",
-    href: "/staff/catalog/audit",
+    href: "/staff/catalog/audit-log",
     icon: IconHistory,
     key: "catalog-audit",
-    label: "Audit",
-    title: "Audit",
+    label: "Audit log",
+    minimumRole: "staff",
+    title: "Audit Log",
   },
   "subscriptions-overview": {
-    breadcrumb: [
-      { label: "Subscriptions" },
-      { label: "Overview" },
-    ],
+    breadcrumb: [{ label: "Subscriptions" }, { label: "Overview" }],
     description:
       "Review customer footprint, live subscription coverage, and support-facing subscription signals.",
     exact: true,
@@ -131,6 +138,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconLayoutDashboard,
     key: "subscriptions-overview",
     label: "Overview",
+    minimumRole: "staff",
     title: "Subscriptions Overview",
   },
   "subscriptions-customers": {
@@ -144,6 +152,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconUsers,
     key: "subscriptions-customers",
     label: "Customers",
+    minimumRole: "staff",
     title: "Customers",
   },
   "subscriptions-active": {
@@ -157,6 +166,7 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconActivity,
     key: "subscriptions-active",
     label: "Active",
+    minimumRole: "staff",
     title: "Active Subscriptions",
   },
   "subscriptions-creator-access": {
@@ -170,7 +180,22 @@ const STAFF_BILLING_SECTIONS: Record<StaffBillingSection, StaffBillingSectionCon
     icon: IconListDetails,
     key: "subscriptions-creator-access",
     label: "Creator access",
+    minimumRole: "staff",
     title: "Creator Access",
+  },
+  "subscriptions-audit-log": {
+    breadcrumb: [
+      { href: "/staff/subscriptions", label: "Subscriptions" },
+      { label: "Audit log" },
+    ],
+    description:
+      "Inspect Stripe webhook deliveries and raw payloads captured for subscription reconciliation.",
+    href: "/staff/subscriptions/audit-log",
+    icon: IconHistory,
+    key: "subscriptions-audit-log",
+    label: "Audit log",
+    minimumRole: "admin",
+    title: "Subscription Audit Log",
   },
 }
 
@@ -188,6 +213,7 @@ export const STAFF_BILLING_SUBSCRIPTION_ITEMS = [
   STAFF_BILLING_SECTIONS["subscriptions-customers"],
   STAFF_BILLING_SECTIONS["subscriptions-active"],
   STAFF_BILLING_SECTIONS["subscriptions-creator-access"],
+  STAFF_BILLING_SECTIONS["subscriptions-audit-log"],
 ] as const satisfies readonly StaffBillingSectionConfig[]
 
 export function getStaffBillingSectionConfig(section: StaffBillingSection) {
@@ -217,7 +243,10 @@ export function resolveStaffBillingSectionFromPathname(
     return "catalog-operations"
   }
 
-  if (pathname.startsWith("/staff/catalog/audit")) {
+  if (
+    pathname.startsWith("/staff/catalog/audit-log") ||
+    pathname.startsWith("/staff/catalog/audit")
+  ) {
     return "catalog-audit"
   }
 
@@ -238,6 +267,10 @@ export function resolveStaffBillingSectionFromPathname(
 
   if (pathname.startsWith("/staff/subscriptions/creator-access")) {
     return "subscriptions-creator-access"
+  }
+
+  if (pathname.startsWith("/staff/subscriptions/audit-log")) {
+    return "subscriptions-audit-log"
   }
 
   return "catalog-overview"

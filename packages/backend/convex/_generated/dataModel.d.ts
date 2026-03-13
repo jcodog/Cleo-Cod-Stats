@@ -529,11 +529,19 @@ export type DataModel = {
     document: {
       createdAt: number;
       customerId?: string;
+      deliveryCount?: number;
       errorMessage?: string;
       eventType: string;
       invoiceId?: string;
+      lastDeliveryAt?: number;
+      payloadBackfilledAt?: number;
+      payloadJson?: string;
+      payloadUnavailableAt?: number;
+      payloadUnavailableReason?: string;
       paymentIntentId?: string;
       processedAt?: number;
+      processingAttemptCount?: number;
+      processingClaimedAt?: number;
       processingStatus:
         | "received"
         | "processing"
@@ -553,11 +561,19 @@ export type DataModel = {
       | "_id"
       | "createdAt"
       | "customerId"
+      | "deliveryCount"
       | "errorMessage"
       | "eventType"
       | "invoiceId"
+      | "lastDeliveryAt"
+      | "payloadBackfilledAt"
+      | "payloadJson"
+      | "payloadUnavailableAt"
+      | "payloadUnavailableReason"
       | "paymentIntentId"
       | "processedAt"
+      | "processingAttemptCount"
+      | "processingClaimedAt"
       | "processingStatus"
       | "receivedAt"
       | "safeSummary"

@@ -4,13 +4,15 @@ import { IconChevronRight } from "@tabler/icons-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import type { UserRole } from "@workspace/backend/convex/lib/staffRoles"
+import {
+  roleMeetsRequirement,
+  type UserRole,
+} from "@workspace/backend/convex/lib/staffRoles"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
-import { Badge } from "@workspace/ui/components/badge"
 import {
   Collapsible,
   CollapsibleContent,
@@ -41,7 +43,6 @@ import {
 } from "@workspace/ui/components/sidebar"
 
 import {
-  formatStaffRoleLabel,
   getStaffNavigationSections,
   isStaffBillingGroupOpen,
   isStaffRouteActive,
@@ -115,6 +116,13 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
 
                   const billingGroup =
                     item.key === "billing-catalog" ? "catalog" : "subscriptions"
+                  const visibleSubItems = item.items.filter((subItem) =>
+                    roleMeetsRequirement(role, subItem.minimumRole)
+                  )
+
+                  if (visibleSubItems.length === 0) {
+                    return null
+                  }
 
                   return (
                     <SidebarMenuItem key={item.key}>
@@ -135,7 +143,7 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
                             side="right"
                           >
                             <DropdownMenuGroup>
-                              {item.items.map((subItem) => {
+                              {visibleSubItems.map((subItem) => {
                                 const isActive = isStaffRouteActive(
                                   pathname,
                                   subItem.href,
@@ -145,7 +153,9 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
                                 return (
                                   <DropdownMenuItem asChild key={subItem.key}>
                                     <Link
-                                      aria-current={isActive ? "page" : undefined}
+                                      aria-current={
+                                        isActive ? "page" : undefined
+                                      }
                                       className="flex items-center gap-2"
                                       href={subItem.href}
                                     >
@@ -181,7 +191,7 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <SidebarMenuSub>
-                              {item.items.map((subItem) => {
+                              {visibleSubItems.map((subItem) => {
                                 const isActive = isStaffRouteActive(
                                   pathname,
                                   subItem.href,
@@ -224,11 +234,6 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="rounded-md border border-sidebar-border/70 bg-sidebar p-3 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
           <div className="flex items-center justify-between gap-3 group-data-[collapsible=icon]:justify-center">
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <div className="text-xs font-medium text-sidebar-foreground/70">
-                Signed in
-              </div>
-            </div>
             <UserButton
               showName={!isCollapsedDesktop}
               userProfileMode="navigation"
@@ -241,12 +246,6 @@ export function StaffConsoleSidebar({ role }: { role: UserRole }) {
                 },
               }}
             />
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3 group-data-[collapsible=icon]:hidden">
-            <span className="text-xs font-medium text-sidebar-foreground/70">
-              Current Role
-            </span>
-            <Badge variant="outline">{formatStaffRoleLabel(role)}</Badge>
           </div>
         </div>
       </SidebarFooter>

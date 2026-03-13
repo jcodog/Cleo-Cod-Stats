@@ -69,11 +69,11 @@ export function StaffDataTable<TData>({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-start md:justify-between">
         <label className="relative w-full max-w-sm">
           <IconSearch className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            className="h-11 pl-9"
             onChange={(event) => setSearch(event.target.value)}
             placeholder={searchPlaceholder}
             value={search}
@@ -116,38 +116,37 @@ export function StaffDataTable<TData>({
           </TableHeader>
 
           <TableBody>
-            {hasRows
-              ? table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className="max-w-[18rem] align-top whitespace-normal"
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : (
-                  <TableRow>
-                    <TableCell className="p-0" colSpan={columns.length}>
-                      <Empty className="border-0 rounded-none">
-                        <EmptyHeader>
-                          <EmptyTitle>{emptyTitle}</EmptyTitle>
-                          <EmptyDescription>{emptyDescription}</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
+            {hasRows ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className="max-w-[18rem] align-top whitespace-normal"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
-                  </TableRow>
-                )}
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell className="p-0" colSpan={columns.length}>
+                  <Empty className="rounded-none border-0">
+                    <EmptyHeader>
+                      <EmptyTitle>{emptyTitle}</EmptyTitle>
+                      <EmptyDescription>{emptyDescription}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
     </div>
   )
 }
-

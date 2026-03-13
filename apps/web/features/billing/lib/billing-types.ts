@@ -226,6 +226,7 @@ export type CheckoutIntentResult = {
 
 export type BillingChangePreview = {
   amountDueNow: number
+  creditApplied: number
   currentAmount: number
   currentInterval: BillingInterval
   currentPlanKey: string
@@ -238,6 +239,8 @@ export type BillingChangePreview = {
     | "scheduled_change"
   planKey: string
   prorationBehavior: "always_invoice" | "none"
+  prorationDate: number | null
+  proratedCharge: number
   summary: string
   targetAmount: number
 }

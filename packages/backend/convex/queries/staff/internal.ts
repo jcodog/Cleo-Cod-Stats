@@ -1,6 +1,7 @@
 import type { Doc } from "../../_generated/dataModel"
 import { internalQuery } from "../../_generated/server"
 import { v } from "convex/values"
+import { getWebhookObjectIdsFromPayloadJson } from "../../lib/billingStripe"
 import { resolveConfiguredUserRole } from "../../lib/staffRoleConfig"
 
 type UserRecord = Doc<"users">
@@ -118,6 +119,78 @@ export const getBillingRecords = internalQuery({
       subscriptions: subscriptions.sort((left, right) => right.updatedAt - left.updatedAt),
       users: users.sort(sortUsers),
       webhookEvents,
+    }
+  },
+})
+
+export const getBillingWebhookLedgerRecords = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const webhookEvents = await ctx.db
+      .query("billingWebhookEvents")
+      .withIndex("by_receivedAt")
+      .order("desc")
+      .collect()
+
+    return webhookEvents.map((event) => ({
+      ...(getWebhookObjectIdsFromPayloadJson(event.payloadJson) ?? {}),
+      _id: event._id,
+      customerId:
+        event.customerId ??
+        getWebhookObjectIdsFromPayloadJson(event.payloadJson)?.customerId,
+      errorMessage: event.errorMessage,
+      eventType: event.eventType,
+      hasPayloadJson: event.payloadJson !== undefined,
+      invoiceId:
+        event.invoiceId ??
+        getWebhookObjectIdsFromPayloadJson(event.payloadJson)?.invoiceId,
+      paymentIntentId:
+        event.paymentIntentId ??
+        getWebhookObjectIdsFromPayloadJson(event.payloadJson)?.paymentIntentId,
+      processedAt: event.processedAt,
+      processingStatus: event.processingStatus,
+      payloadUnavailableAt: event.payloadUnavailableAt,
+      payloadUnavailableReason: event.payloadUnavailableReason,
+      receivedAt: event.receivedAt,
+      safeSummary: event.safeSummary,
+      stripeEventId: event.stripeEventId,
+      subscriptionId:
+        event.subscriptionId ??
+        getWebhookObjectIdsFromPayloadJson(event.payloadJson)?.subscriptionId,
+    }))
+  },
+})
+
+export const getBillingWebhookEventById = internalQuery({
+  args: {
+    eventId: v.id("billingWebhookEvents"),
+  },
+  handler: async (ctx, args) => {
+    const event = await ctx.db.get(args.eventId)
+
+    if (!event) {
+      return null
+    }
+
+    const derivedObjectIds = getWebhookObjectIdsFromPayloadJson(event.payloadJson)
+
+    return {
+      _id: event._id,
+      customerId: event.customerId ?? derivedObjectIds?.customerId,
+      errorMessage: event.errorMessage,
+      eventType: event.eventType,
+      invoiceId: event.invoiceId ?? derivedObjectIds?.invoiceId,
+      paymentIntentId:
+        event.paymentIntentId ?? derivedObjectIds?.paymentIntentId,
+      payloadJson: event.payloadJson,
+      payloadUnavailableAt: event.payloadUnavailableAt,
+      payloadUnavailableReason: event.payloadUnavailableReason,
+      processedAt: event.processedAt,
+      processingStatus: event.processingStatus,
+      receivedAt: event.receivedAt,
+      safeSummary: event.safeSummary,
+      stripeEventId: event.stripeEventId,
+      subscriptionId: event.subscriptionId ?? derivedObjectIds?.subscriptionId,
     }
   },
 })

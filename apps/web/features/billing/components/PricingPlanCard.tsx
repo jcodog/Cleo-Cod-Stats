@@ -20,7 +20,7 @@ function getRelationshipLabel(plan: PricingCatalogPlan) {
     case "downgrade":
       return "Downgrade"
     case "switch":
-      return "Switch"
+      return "Update"
     default:
       return "Available"
   }
@@ -35,6 +35,7 @@ export function PricingPlanCard(args: {
 }) {
   const price =
     args.interval === "year" ? args.plan.pricing.year : args.plan.pricing.month
+  const isFreePlan = args.plan.planType === "free" || !price
   const featureSlotCount = Math.max(
     args.featureSlotCount ?? args.plan.features.length,
     args.plan.features.length
@@ -90,16 +91,20 @@ export function PricingPlanCard(args: {
             <div className="flex items-end justify-between gap-4">
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-semibold tracking-tight">
-                  {price
-                    ? formatCurrencyAmount(price.amount, price.currency)
-                    : "Free"}
+                  {isFreePlan
+                    ? "Free"
+                    : formatCurrencyAmount(price.amount, price.currency)}
                 </span>
-                <span className="pb-1 text-sm text-muted-foreground">
-                  / {args.interval}
-                </span>
+                {!isFreePlan ? (
+                  <span className="pb-1 text-sm text-muted-foreground">
+                    / {args.interval}
+                  </span>
+                ) : null}
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                {args.interval === "year"
+                {isFreePlan
+                  ? "No renewal charge"
+                  : args.interval === "year"
                   ? "Billed once yearly"
                   : "Renews monthly"}
               </div>

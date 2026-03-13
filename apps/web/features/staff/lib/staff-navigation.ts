@@ -119,7 +119,10 @@ const STAFF_BILLING_NAV_ITEMS = {
     label: "Subscriptions",
     minimumRole: "staff",
   },
-} as const satisfies Record<"catalog" | "subscriptions", StaffNavCollapsibleItem>
+} as const satisfies Record<
+  "catalog" | "subscriptions",
+  StaffNavCollapsibleItem
+>
 
 export function resolveStaffRoute(pathname: string): StaffRouteContext {
   if (pathname.startsWith("/staff/management")) {
@@ -144,6 +147,19 @@ export function resolveStaffRoute(pathname: string): StaffRouteContext {
     }
   }
 
+  if (
+    pathname.startsWith("/staff/webhooks") ||
+    pathname.startsWith("/staff/billing/webhooks")
+  ) {
+    const config = getStaffBillingSectionConfig("subscriptions-audit-log")
+
+    return {
+      breadcrumbs: config.breadcrumb,
+      key: `billing-${config.key}`,
+      label: config.title,
+    }
+  }
+
   return {
     breadcrumbs: [{ label: STAFF_NAV_LINKS.overview.label }],
     key: STAFF_NAV_LINKS.overview.key,
@@ -155,15 +171,13 @@ export function getStaffNavigationSections(role: UserRole) {
   return STAFF_NAV_GROUPS.map<StaffNavSection | null>((group) => {
     const items = [
       ...(group === "workspace"
-        ? [
-            STAFF_NAV_LINKS.overview,
-          ]
+        ? [STAFF_NAV_LINKS.overview]
         : group === "billing"
           ? [
-            STAFF_BILLING_NAV_ITEMS.catalog,
-            STAFF_BILLING_NAV_ITEMS.subscriptions,
-          ]
-        : [STAFF_NAV_LINKS.management]),
+              STAFF_BILLING_NAV_ITEMS.catalog,
+              STAFF_BILLING_NAV_ITEMS.subscriptions,
+            ]
+          : [STAFF_NAV_LINKS.management]),
     ].filter((item) => roleMeetsRequirement(role, item.minimumRole))
 
     if (items.length === 0) {

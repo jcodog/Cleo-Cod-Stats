@@ -36,6 +36,7 @@ export declare const api: {
           {
             interval: "month" | "year";
             planKey: string;
+            prorationDate?: number;
             stripeSubscriptionId?: string;
           },
           any
@@ -58,6 +59,7 @@ export declare const api: {
           {
             interval: "month" | "year";
             planKey: string;
+            prorationDate?: number;
             stripeSubscriptionId?: string;
           },
           any
@@ -121,6 +123,13 @@ export declare const api: {
           any
         >;
         getDashboard: FunctionReference<"action", "public", {}, any>;
+        getWebhookDashboard: FunctionReference<"action", "public", {}, any>;
+        getWebhookEventDetail: FunctionReference<
+          "action",
+          "public",
+          { eventId: Id<"billingWebhookEvents"> },
+          any
+        >;
         grantCreatorAccess: FunctionReference<
           "action",
           "public",
@@ -168,6 +177,7 @@ export declare const api: {
           { interval: "month" | "year"; planKey: string },
           any
         >;
+        refreshWebhookLedger: FunctionReference<"action", "public", {}, any>;
         replacePlanPrice: FunctionReference<
           "action",
           "public",
@@ -747,6 +757,12 @@ export declare const internal: {
         >;
       };
       state: {
+        claimWebhookEventProcessing: FunctionReference<
+          "mutation",
+          "internal",
+          { stripeEventId: string },
+          any
+        >;
         clearSubscriptionScheduledChange: FunctionReference<
           "mutation",
           "internal",
@@ -785,16 +801,16 @@ export declare const internal: {
           { errorMessage: string; stripeEventId: string },
           any
         >;
+        markWebhookEventPayloadUnavailable: FunctionReference<
+          "mutation",
+          "internal",
+          { reason?: string; stripeEventId: string },
+          any
+        >;
         markWebhookEventProcessed: FunctionReference<
           "mutation",
           "internal",
           { processingStatus: "processed" | "ignored"; stripeEventId: string },
-          any
-        >;
-        markWebhookEventProcessing: FunctionReference<
-          "mutation",
-          "internal",
-          { stripeEventId: string },
           any
         >;
         recordWebhookEventReceived: FunctionReference<
@@ -804,6 +820,7 @@ export declare const internal: {
             customerId?: string;
             eventType: string;
             invoiceId?: string;
+            payloadJson?: string;
             paymentIntentId?: string;
             safeSummary: string;
             stripeEventId: string;
@@ -832,6 +849,16 @@ export declare const internal: {
             scheduledPlanKey?: string;
             stripeScheduleId?: string;
             stripeSubscriptionId: string;
+          },
+          any
+        >;
+        storeWebhookEventPayload: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            payloadBackfilledAt?: number;
+            payloadJson: string;
+            stripeEventId: string;
           },
           any
         >;
@@ -1222,6 +1249,18 @@ export declare const internal: {
     staff: {
       internal: {
         getBillingRecords: FunctionReference<"query", "internal", {}, any>;
+        getBillingWebhookEventById: FunctionReference<
+          "query",
+          "internal",
+          { eventId: Id<"billingWebhookEvents"> },
+          any
+        >;
+        getBillingWebhookLedgerRecords: FunctionReference<
+          "query",
+          "internal",
+          {},
+          any
+        >;
         getManagementRecords: FunctionReference<"query", "internal", {}, any>;
         getOverviewRecords: FunctionReference<"query", "internal", {}, any>;
         getUserByClerkUserId: FunctionReference<

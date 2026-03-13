@@ -10,6 +10,8 @@ import type {
   StaffImpactPreview,
   StaffManagementDashboard,
   StaffMutationResponse,
+  StaffWebhookEventDetail,
+  StaffWebhookLedgerDashboard,
 } from "@workspace/backend/convex/lib/staffTypes"
 
 import type {
@@ -53,6 +55,9 @@ function toStaffClientError(error: unknown) {
 export const staffQueryKeys = {
   billing: ["staff", "billing"] as const,
   management: ["staff", "management"] as const,
+  webhookDetail: (eventId: string) =>
+    ["staff", "webhooks", "detail", eventId] as const,
+  webhooks: ["staff", "webhooks"] as const,
 }
 
 async function callManagementDashboard(
@@ -70,6 +75,39 @@ async function callBillingDashboard(
 ): Promise<StaffBillingDashboard> {
   try {
     return await convex.action(api.actions.staff.billing.getDashboard, {})
+  } catch (error) {
+    throw toStaffClientError(error)
+  }
+}
+
+async function callWebhookDashboard(
+  convex: ConvexReactClient
+): Promise<StaffWebhookLedgerDashboard> {
+  try {
+    return await convex.action(api.actions.staff.billing.getWebhookDashboard, {})
+  } catch (error) {
+    throw toStaffClientError(error)
+  }
+}
+
+async function callWebhookEventDetail(
+  convex: ConvexReactClient,
+  eventId: Id<"billingWebhookEvents">
+): Promise<StaffWebhookEventDetail> {
+  try {
+    return await convex.action(api.actions.staff.billing.getWebhookEventDetail, {
+      eventId,
+    })
+  } catch (error) {
+    throw toStaffClientError(error)
+  }
+}
+
+async function callRefreshWebhookLedger(
+  convex: ConvexReactClient
+): Promise<StaffMutationResponse> {
+  try {
+    return await convex.action(api.actions.staff.billing.refreshWebhookLedger, {})
   } catch (error) {
     throw toStaffClientError(error)
   }
@@ -218,6 +256,39 @@ export function useStaffBillingDashboard(initialData: StaffBillingDashboard) {
   })
 }
 
+export function useStaffWebhookLedgerDashboard(
+  initialData: StaffWebhookLedgerDashboard
+) {
+  const convex = useConvex()
+  const { isAuthenticated, isLoading } = useConvexAuth()
+
+  return useQuery({
+    enabled: !isLoading && isAuthenticated,
+    initialData,
+    queryFn: () => callWebhookDashboard(convex),
+    queryKey: staffQueryKeys.webhooks,
+  })
+}
+
+export function useStaffWebhookEventDetail(
+  eventId: Id<"billingWebhookEvents"> | null
+) {
+  const convex = useConvex()
+  const { isAuthenticated, isLoading } = useConvexAuth()
+
+  return useQuery({
+    enabled: !isLoading && isAuthenticated && eventId !== null,
+    queryFn: () => {
+      if (!eventId) {
+        throw new Error("Webhook event id is required.")
+      }
+
+      return callWebhookEventDetail(convex, eventId)
+    },
+    queryKey: staffQueryKeys.webhookDetail(eventId ?? "idle"),
+  })
+}
+
 export function useStaffManagementClient() {
   const convex = useConvex()
 
@@ -236,6 +307,14 @@ export function useStaffBillingClient() {
   }
 }
 
+export function useStaffWebhookClient() {
+  const convex = useConvex()
+
+  return {
+    refreshLedger: () => callRefreshWebhookLedger(convex),
+  }
+}
+
 export function useInvalidateStaffQueries() {
   const queryClient = useQueryClient()
 
@@ -244,11 +323,13 @@ export function useInvalidateStaffQueries() {
       queryClient.invalidateQueries({ queryKey: staffQueryKeys.billing }),
     invalidateManagement: () =>
       queryClient.invalidateQueries({ queryKey: staffQueryKeys.management }),
+    invalidateWebhooks: () =>
+      queryClient.invalidateQueries({ queryKey: staffQueryKeys.webhooks }),
   }
 }
 
 export function useStaffMutation<TVariables, TResult>(args: {
-  invalidate: Array<"billing" | "management">
+  invalidate: Array<"billing" | "management" | "webhooks">
   mutationFn: (variables: TVariables) => Promise<TResult>
 }) {
   const queryClient = useQueryClient()
@@ -262,7 +343,9 @@ export function useStaffMutation<TVariables, TResult>(args: {
             queryKey:
               scope === "billing"
                 ? staffQueryKeys.billing
-                : staffQueryKeys.management,
+                : scope === "management"
+                  ? staffQueryKeys.management
+                  : staffQueryKeys.webhooks,
           })
         )
       )

@@ -324,6 +324,42 @@ function getPlanAmount(plan: BillingPlanRecord, interval: "month" | "year") {
   return interval === "month" ? plan.monthlyPriceAmount : plan.yearlyPriceAmount
 }
 
+function getPreviewProrationBreakdown(args: {
+  invoice: Stripe.Invoice
+  prorationDate: number
+}) {
+  let creditApplied = 0
+  let proratedCharge = 0
+
+  for (const lineItem of args.invoice.lines.data) {
+    const linePeriodStart =
+      typeof lineItem.period?.start === "number"
+        ? lineItem.period.start
+        : undefined
+    const isProrationLine =
+      ("proration" in lineItem && lineItem.proration === true) ||
+      linePeriodStart === args.prorationDate
+
+    if (!isProrationLine) {
+      continue
+    }
+
+    if (lineItem.amount < 0) {
+      creditApplied += Math.abs(lineItem.amount)
+      continue
+    }
+
+    if (lineItem.amount > 0) {
+      proratedCharge += lineItem.amount
+    }
+  }
+
+  return {
+    creditApplied,
+    proratedCharge,
+  }
+}
+
 function getMonthlyEquivalentAmount(
   plan: BillingPlanRecord,
   interval: "month" | "year"
@@ -343,6 +379,10 @@ function classifyPlanChange(args: {
     args.targetInterval === args.currentInterval
   ) {
     return "noop" as const
+  }
+
+  if (args.targetPlan.key === args.currentPlan.key) {
+    return "switch_now" as const
   }
 
   if (args.targetPlan.sortOrder > args.currentPlan.sortOrder) {
@@ -1458,6 +1498,7 @@ export const previewSubscriptionChange = action({
   args: {
     interval: billingIntervalValidator,
     planKey: v.string(),
+    prorationDate: v.optional(v.number()),
     stripeSubscriptionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -1487,6 +1528,7 @@ export const previewSubscriptionChange = action({
       if (args.planKey === "free") {
         return {
           amountDueNow: 0,
+          creditApplied: 0,
           currentAmount: getPlanAmount(
             currentPlan,
             targetSubscription.interval
@@ -1498,8 +1540,10 @@ export const previewSubscriptionChange = action({
           mode: "cancel_at_period_end" as const,
           planKey: "free",
           prorationBehavior: "none" as const,
+          prorationDate: null,
+          proratedCharge: 0,
           summary:
-            "This will cancel the paid subscription at the end of the current billing period and move the account back to free access.",
+            "This downgrade will move the account back to free access at the end of the current paid period. Paid features stay active until then and Stripe will not issue a refund.",
           targetAmount: 0,
         }
       }
@@ -1519,6 +1563,7 @@ export const previewSubscriptionChange = action({
       if (changeKind === "noop") {
         return {
           amountDueNow: 0,
+          creditApplied: 0,
           currentAmount: getPlanAmount(
             currentPlan,
             targetSubscription.interval
@@ -1530,6 +1575,8 @@ export const previewSubscriptionChange = action({
           mode: "noop" as const,
           planKey: targetPlan.key,
           prorationBehavior: "none" as const,
+          prorationDate: null,
+          proratedCharge: 0,
           summary: "That plan and billing interval is already active.",
           targetAmount: getPlanAmount(targetPlan, args.interval),
         }
@@ -1538,6 +1585,7 @@ export const previewSubscriptionChange = action({
       if (changeKind === "downgrade_later" || changeKind === "switch_later") {
         return {
           amountDueNow: 0,
+          creditApplied: 0,
           currentAmount: getPlanAmount(
             currentPlan,
             targetSubscription.interval
@@ -1549,13 +1597,16 @@ export const previewSubscriptionChange = action({
           mode: "scheduled_change" as const,
           planKey: targetPlan.key,
           prorationBehavior: "none" as const,
+          prorationDate: null,
+          proratedCharge: 0,
           summary:
-            "This change will take effect at the next renewal. Existing access stays in place until the current billing period ends.",
+            "This downgrade will take effect at the next renewal. Existing access and pricing stay in place until the current billing period ends, and the lower price starts on the next payment.",
           targetAmount: getPlanAmount(targetPlan, args.interval),
         }
       }
 
       const stripe = getStripe()
+      const prorationDate = args.prorationDate ?? Math.floor(Date.now() / 1000)
       const preview = await stripe.invoices.createPreview({
         customer: targetSubscription.stripeCustomerId,
         subscription: targetSubscription.stripeSubscriptionId,
@@ -1574,12 +1625,18 @@ export const previewSubscriptionChange = action({
                   quantity: 1,
                 },
               ],
+          proration_date: prorationDate,
           proration_behavior: "always_invoice",
         },
+      })
+      const prorationBreakdown = getPreviewProrationBreakdown({
+        invoice: preview,
+        prorationDate,
       })
 
       return {
         amountDueNow: preview.amount_due,
+        creditApplied: prorationBreakdown.creditApplied,
         currentAmount: getPlanAmount(currentPlan, targetSubscription.interval),
         currentInterval: targetSubscription.interval,
         currentPlanKey: currentPlan.key,
@@ -1588,8 +1645,12 @@ export const previewSubscriptionChange = action({
         mode: "immediate_change" as const,
         planKey: targetPlan.key,
         prorationBehavior: "always_invoice" as const,
+        prorationDate,
+        proratedCharge: prorationBreakdown.proratedCharge,
         summary:
-          "The subscription will update immediately and Stripe will calculate any proration adjustments when the change invoice is created.",
+          prorationBreakdown.creditApplied > 0
+            ? "This upgrade takes effect immediately. Stripe applied credit for the unused time on the current plan and reduced what is due today."
+            : "This upgrade takes effect immediately. Stripe will create the change invoice right away.",
         targetAmount: getPlanAmount(targetPlan, args.interval),
       }
     } catch (error) {
@@ -1602,6 +1663,7 @@ export const changeSubscriptionPlan = action({
   args: {
     interval: billingIntervalValidator,
     planKey: v.string(),
+    prorationDate: v.optional(v.number()),
     stripeSubscriptionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -1822,6 +1884,7 @@ export const changeSubscriptionPlan = action({
             },
           ],
           payment_behavior: "pending_if_incomplete",
+          proration_date: args.prorationDate,
           proration_behavior: "always_invoice",
         }
       )

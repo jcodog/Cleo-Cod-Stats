@@ -47,7 +47,7 @@ export function PlanSelector(args: {
         </TabsList>
       </Tabs>
       <RadioGroup
-        className="grid items-stretch gap-4 lg:grid-cols-2"
+        className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3"
         onValueChange={args.onSelectPlan}
         value={args.selectedPlanKey}
       >
