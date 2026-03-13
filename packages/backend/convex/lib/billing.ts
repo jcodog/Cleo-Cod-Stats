@@ -59,6 +59,12 @@ export function hasPaidSubscriptionAccess(status: BillingSubscriptionStatus) {
   )
 }
 
+export function isManageableSubscriptionStatus(
+  status: BillingSubscriptionStatus
+) {
+  return status !== "canceled" && status !== "incomplete_expired"
+}
+
 export function isTerminalSubscriptionStatus(
   status: BillingSubscriptionStatus
 ) {

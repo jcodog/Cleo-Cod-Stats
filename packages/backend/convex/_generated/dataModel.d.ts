@@ -79,11 +79,31 @@ export type DataModel = {
   billingCustomers: {
     document: {
       active: boolean;
+      billingAddress?: {
+        city?: string;
+        country?: string;
+        line1?: string;
+        line2?: string;
+        postalCode?: string;
+        state?: string;
+      };
+      businessName?: string;
       clerkUserId: string;
       createdAt: number;
+      defaultPaymentMethodId?: string;
       email?: string;
+      lastSyncedAt?: number;
       name?: string;
+      phone?: string;
       stripeCustomerId: string;
+      taxExempt?: "none" | "exempt" | "reverse";
+      taxIds?: Array<{
+        country?: string;
+        stripeTaxIdId: string;
+        type: string;
+        value: string;
+        verificationStatus?: string;
+      }>;
       updatedAt: number;
       userId: Id<"users">;
       _id: Id<"billingCustomers">;
@@ -93,11 +113,24 @@ export type DataModel = {
       | "_creationTime"
       | "_id"
       | "active"
+      | "billingAddress"
+      | "billingAddress.city"
+      | "billingAddress.country"
+      | "billingAddress.line1"
+      | "billingAddress.line2"
+      | "billingAddress.postalCode"
+      | "billingAddress.state"
+      | "businessName"
       | "clerkUserId"
       | "createdAt"
+      | "defaultPaymentMethodId"
       | "email"
+      | "lastSyncedAt"
       | "name"
+      | "phone"
       | "stripeCustomerId"
+      | "taxExempt"
+      | "taxIds"
       | "updatedAt"
       | "userId";
     indexes: {
@@ -185,6 +218,131 @@ export type DataModel = {
       by_creation_time: ["_creationTime"];
       by_active: ["active", "_creationTime"];
       by_key: ["key", "_creationTime"];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingInvoices: {
+    document: {
+      amountDue: number;
+      amountPaid: number;
+      clerkUserId: string;
+      createdAt: number;
+      currency: string;
+      description: string;
+      hostedInvoiceUrl?: string;
+      invoiceIssuedAt: number;
+      invoiceNumber?: string;
+      invoicePdfUrl?: string;
+      paymentMethodBrand?: string;
+      paymentMethodLast4?: string;
+      paymentMethodType?: string;
+      status: string;
+      stripeCustomerId: string;
+      stripeInvoiceId: string;
+      stripeSubscriptionId?: string;
+      updatedAt: number;
+      userId: Id<"users">;
+      _id: Id<"billingInvoices">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "amountDue"
+      | "amountPaid"
+      | "clerkUserId"
+      | "createdAt"
+      | "currency"
+      | "description"
+      | "hostedInvoiceUrl"
+      | "invoiceIssuedAt"
+      | "invoiceNumber"
+      | "invoicePdfUrl"
+      | "paymentMethodBrand"
+      | "paymentMethodLast4"
+      | "paymentMethodType"
+      | "status"
+      | "stripeCustomerId"
+      | "stripeInvoiceId"
+      | "stripeSubscriptionId"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_stripeCustomerId: ["stripeCustomerId", "_creationTime"];
+      by_stripeInvoiceId: ["stripeInvoiceId", "_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+      by_userId_and_invoiceIssuedAt: [
+        "userId",
+        "invoiceIssuedAt",
+        "_creationTime",
+      ];
+    };
+    searchIndexes: {};
+    vectorIndexes: {};
+  };
+  billingPaymentMethods: {
+    document: {
+      active: boolean;
+      bankName?: string;
+      billingAddress?: {
+        city?: string;
+        country?: string;
+        line1?: string;
+        line2?: string;
+        postalCode?: string;
+        state?: string;
+      };
+      brand?: string;
+      cardholderName?: string;
+      clerkUserId: string;
+      createdAt: number;
+      expMonth?: number;
+      expYear?: number;
+      isDefault: boolean;
+      last4?: string;
+      stripeCustomerId: string;
+      stripePaymentMethodId: string;
+      type: string;
+      updatedAt: number;
+      userId: Id<"users">;
+      _id: Id<"billingPaymentMethods">;
+      _creationTime: number;
+    };
+    fieldPaths:
+      | "_creationTime"
+      | "_id"
+      | "active"
+      | "bankName"
+      | "billingAddress"
+      | "billingAddress.city"
+      | "billingAddress.country"
+      | "billingAddress.line1"
+      | "billingAddress.line2"
+      | "billingAddress.postalCode"
+      | "billingAddress.state"
+      | "brand"
+      | "cardholderName"
+      | "clerkUserId"
+      | "createdAt"
+      | "expMonth"
+      | "expYear"
+      | "isDefault"
+      | "last4"
+      | "stripeCustomerId"
+      | "stripePaymentMethodId"
+      | "type"
+      | "updatedAt"
+      | "userId";
+    indexes: {
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+      by_stripeCustomerId: ["stripeCustomerId", "_creationTime"];
+      by_stripePaymentMethodId: ["stripePaymentMethodId", "_creationTime"];
+      by_userId: ["userId", "_creationTime"];
+      by_userId_and_active: ["userId", "active", "_creationTime"];
     };
     searchIndexes: {};
     vectorIndexes: {};
@@ -280,15 +438,18 @@ export type DataModel = {
       createdAt: number;
       currentPeriodEnd?: number;
       currentPeriodStart?: number;
+      defaultPaymentMethodId?: string;
       endedAt?: number;
       interval: "month" | "year";
       lastStripeEventId?: string;
       planKey: string;
+      quantity?: number;
       scheduledChangeAt?: number;
       scheduledChangeRequestedAt?: number;
       scheduledChangeType?: "cancel" | "plan_change";
       scheduledInterval?: "month" | "year";
       scheduledPlanKey?: string;
+      startedAt?: number;
       status:
         | "incomplete"
         | "trialing"
@@ -306,6 +467,8 @@ export type DataModel = {
       stripeScheduleId?: string;
       stripeSubscriptionId: string;
       stripeSubscriptionItemId?: string;
+      trialEnd?: number;
+      trialStart?: number;
       updatedAt: number;
       userId: Id<"users">;
       _id: Id<"billingSubscriptions">;
@@ -323,15 +486,18 @@ export type DataModel = {
       | "createdAt"
       | "currentPeriodEnd"
       | "currentPeriodStart"
+      | "defaultPaymentMethodId"
       | "endedAt"
       | "interval"
       | "lastStripeEventId"
       | "planKey"
+      | "quantity"
       | "scheduledChangeAt"
       | "scheduledChangeRequestedAt"
       | "scheduledChangeType"
       | "scheduledInterval"
       | "scheduledPlanKey"
+      | "startedAt"
       | "status"
       | "stripeCustomerId"
       | "stripeLatestInvoiceId"
@@ -341,6 +507,8 @@ export type DataModel = {
       | "stripeScheduleId"
       | "stripeSubscriptionId"
       | "stripeSubscriptionItemId"
+      | "trialEnd"
+      | "trialStart"
       | "updatedAt"
       | "userId";
     indexes: {

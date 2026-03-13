@@ -1,10 +1,5 @@
-import { BillingSettingsView } from "@/features/billing/views/BillingSettingsView"
-import { isFlagEnabled } from "@/lib/flags"
+import { redirect } from "next/navigation"
 
-export default async function BillingInvoicesSettingsPage() {
-  const checkoutEnabled = await isFlagEnabled("checkout")
-
-  return (
-    <BillingSettingsView checkoutEnabled={checkoutEnabled} section="invoices" />
-  )
+export default function BillingInvoicesSettingsPage() {
+  redirect("/settings/billing")
 }

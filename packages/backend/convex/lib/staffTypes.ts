@@ -144,13 +144,21 @@ export type StaffBillingAssignmentRecord = {
   planKey: string
 }
 
+export type StaffBillingAccessSource =
+  | "creator_grant"
+  | "legacy_plan"
+  | "none"
+  | "paid_subscription"
+
 export type StaffBillingCustomerRecord = {
   active: boolean
   activeSubscriptionCount: number
   clerkUserId: string
   createdAt: number
+  creatorAccessSource: StaffBillingAccessSource
   email?: string
-  hasCreatorGrant?: boolean
+  hasCreatorAccess: boolean
+  hasCreatorGrant: boolean
   planKeys: string[]
   stripeCustomerId: string
   subscriptionCount: number
@@ -159,7 +167,7 @@ export type StaffBillingCustomerRecord = {
 }
 
 export type StaffBillingUserLookupRecord = {
-  accessSource: "creator_grant" | "legacy_plan" | "none" | "paid_subscription"
+  accessSource: StaffBillingAccessSource
   clerkUserId: string
   currentPlanKey?: string | null
   email?: string

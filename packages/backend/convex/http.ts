@@ -9,6 +9,8 @@ import {
   reconcileBillingCustomer,
   reconcileStripeInvoice,
   reconcileStripeSubscription,
+  syncBillingInvoicesForCustomer,
+  syncBillingPaymentMethodsForCustomer,
 } from "./lib/billingLifecycle";
 import { buildWebhookSafeSummary, getWebhookObjectIds } from "./lib/billingStripe";
 import { getStripe } from "./lib/stripe";
@@ -195,6 +197,32 @@ http.route({
           );
           break;
         }
+        case "invoice.created":
+        case "invoice.finalized":
+        case "invoice.marked_uncollectible":
+        case "invoice.updated":
+        case "invoice.voided": {
+          const invoice = event.data.object as Stripe.Invoice;
+          const stripeCustomerId =
+            typeof invoice.customer === "string" ? invoice.customer : undefined;
+
+          if (stripeCustomerId) {
+            await syncBillingInvoicesForCustomer({
+              ctx,
+              stripe,
+              stripeCustomerId,
+            });
+          }
+
+          await ctx.runMutation(
+            internal.mutations.billing.state.markWebhookEventProcessed,
+            {
+              processingStatus: "processed",
+              stripeEventId: event.id,
+            }
+          );
+          break;
+        }
         case "customer.created":
         case "customer.updated": {
           const stripeCustomer = event.data.object as Stripe.Customer;
@@ -205,6 +233,48 @@ http.route({
             stripe,
             stripeCustomerId: stripeCustomer.id,
           });
+
+          await ctx.runMutation(
+            internal.mutations.billing.state.markWebhookEventProcessed,
+            {
+              processingStatus: "processed",
+              stripeEventId: event.id,
+            }
+          );
+          break;
+        }
+        case "payment_method.attached":
+        case "payment_method.detached":
+        case "payment_method.updated": {
+          const paymentMethod = event.data.object as Stripe.PaymentMethod;
+
+          if (typeof paymentMethod.customer === "string") {
+            await syncBillingPaymentMethodsForCustomer({
+              ctx,
+              stripe,
+              stripeCustomerId: paymentMethod.customer,
+            });
+          }
+
+          await ctx.runMutation(
+            internal.mutations.billing.state.markWebhookEventProcessed,
+            {
+              processingStatus: "processed",
+              stripeEventId: event.id,
+            }
+          );
+          break;
+        }
+        case "setup_intent.succeeded": {
+          const setupIntent = event.data.object as Stripe.SetupIntent;
+
+          if (typeof setupIntent.customer === "string") {
+            await syncBillingPaymentMethodsForCustomer({
+              ctx,
+              stripe,
+              stripeCustomerId: setupIntent.customer,
+            });
+          }
 
           await ctx.runMutation(
             internal.mutations.billing.state.markWebhookEventProcessed,

@@ -15,13 +15,13 @@ export default function CheckoutSuccessPage() {
         <CardHeader>
           <CardTitle>Billing confirmation received</CardTitle>
           <CardDescription>
-            Stripe confirmation completed. Billing access and final lifecycle state
-            will reconcile through webhooks and then appear in the portal.
+            Stripe confirmation completed. Billing access and final lifecycle
+            state will reconcile through webhooks and then appear in billing.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row">
           <Button asChild>
-            <Link href="/settings/billing">Open billing portal</Link>
+            <Link href="/settings/billing">Open billing</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard">Return to dashboard</Link>

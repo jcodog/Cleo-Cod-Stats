@@ -1,15 +1,8 @@
 "use client"
 
-import {
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
-import {
-  IconDotsVertical,
-  IconPlugConnected,
-} from "@tabler/icons-react"
+import { IconDotsVertical, IconPlugConnected } from "@tabler/icons-react"
 import type {
   StaffBillingDashboard,
   StaffBillingCustomerRecord,
@@ -93,12 +86,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { Textarea } from "@workspace/ui/components/textarea"
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-} from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import { toast } from "sonner"
 
 import { StaffDataTable } from "@/features/staff/components/StaffDataTable"
@@ -209,6 +197,10 @@ function formatCurrencyAmount(amount: number, currency: string) {
 }
 
 function formatDateTime(value: number) {
+  if (!Number.isFinite(value)) {
+    return "Not set"
+  }
+
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -216,7 +208,9 @@ function formatDateTime(value: number) {
 }
 
 function normalizeKeys(values: string[]) {
-  return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
+  return Array.from(new Set(values)).sort((left, right) =>
+    left.localeCompare(right)
+  )
 }
 
 function sameKeySet(left: string[], right: string[]) {
@@ -227,7 +221,9 @@ function sameKeySet(left: string[], right: string[]) {
     return false
   }
 
-  return normalizedLeft.every((value, index) => value === normalizedRight[index])
+  return normalizedLeft.every(
+    (value, index) => value === normalizedRight[index]
+  )
 }
 
 function diffKeys(args: { next: string[]; previous: string[] }) {
@@ -240,7 +236,11 @@ function diffKeys(args: { next: string[]; previous: string[] }) {
   }
 }
 
-function SyncStatusBadge({ status }: { status: StaffBillingPlanRecord["syncStatus"] }) {
+function SyncStatusBadge({
+  status,
+}: {
+  status: StaffBillingPlanRecord["syncStatus"]
+}) {
   if (status === "ready") {
     return <Badge variant="secondary">Ready</Badge>
   }
@@ -310,12 +310,7 @@ function MetricCard({
 function BillingAttentionBadge({
   status,
 }: {
-  status:
-    | "none"
-    | "past_due"
-    | "paused"
-    | "payment_failed"
-    | "requires_action"
+  status: "none" | "past_due" | "paused" | "payment_failed" | "requires_action"
 }) {
   if (status === "none") {
     return <Badge variant="secondary">none</Badge>
@@ -365,16 +360,17 @@ function WebhookStatusBadge({
 }
 
 function formatDayLabel(value: number) {
+  if (!Number.isFinite(value)) {
+    return "Unknown"
+  }
+
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
   }).format(value)
 }
 
-function matchesUserLookup(
-  user: StaffBillingUserLookupRecord,
-  query: string
-) {
+function matchesUserLookup(user: StaffBillingUserLookupRecord, query: string) {
   const normalizedQuery = query.trim().toLowerCase()
 
   if (!normalizedQuery) {
@@ -409,11 +405,7 @@ function getActiveCreatorGrant(
   )
 }
 
-function ImpactSummary({
-  preview,
-}: {
-  preview: StaffImpactPreview | null
-}) {
+function ImpactSummary({ preview }: { preview: StaffImpactPreview | null }) {
   if (!preview) {
     return (
       <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
@@ -535,11 +527,12 @@ function MultiSelectCombobox(args: {
     >
       <ComboboxChips className="min-h-11" ref={anchorRef}>
         {selectedOptions.map((option) => (
-          <ComboboxChip key={option.value}>
-            {option.label}
-          </ComboboxChip>
+          <ComboboxChip key={option.value}>{option.label}</ComboboxChip>
         ))}
-        <ComboboxChipsInput className="min-w-24" placeholder={args.placeholder} />
+        <ComboboxChipsInput
+          className="min-w-24"
+          placeholder={args.placeholder}
+        />
       </ComboboxChips>
       <ComboboxContent anchor={anchorRef}>
         <ComboboxList>
@@ -586,34 +579,44 @@ export function StaffBillingView({
     actorRole === "admin" || actorRole === "super_admin"
   const [planForm, setPlanForm] = useState<PlanFormState | null>(null)
   const [featureForm, setFeatureForm] = useState<FeatureFormState | null>(null)
-  const [archivePlanState, setArchivePlanState] = useState<ArchivePlanState | null>(null)
-  const [replacePriceState, setReplacePriceState] = useState<ReplacePriceState | null>(null)
+  const [archivePlanState, setArchivePlanState] =
+    useState<ArchivePlanState | null>(null)
+  const [replacePriceState, setReplacePriceState] =
+    useState<ReplacePriceState | null>(null)
   const [archiveFeatureState, setArchiveFeatureState] =
     useState<ArchiveFeatureState | null>(null)
   const [planFeatureSyncState, setPlanFeatureSyncState] =
     useState<PlanFeatureSyncState | null>(null)
-  const [assignmentEditor, setAssignmentEditor] = useState<AssignmentEditorState>(() => {
-    const initialFeature =
-      initialData.features.find((feature) => feature.active) ?? initialData.features[0]
+  const [assignmentEditor, setAssignmentEditor] =
+    useState<AssignmentEditorState>(() => {
+      const initialFeature =
+        initialData.features.find((feature) => feature.active) ??
+        initialData.features[0]
 
-    return {
-      featureKey: initialFeature?.key ?? "",
-      planKeys: initialFeature?.linkedPlanKeys ?? [],
-    }
-  })
+      return {
+        featureKey: initialFeature?.key ?? "",
+        planKeys: initialFeature?.linkedPlanKeys ?? [],
+      }
+    })
   const [featureAssignmentSyncState, setFeatureAssignmentSyncState] =
     useState<FeatureAssignmentSyncState | null>(null)
-  const [creatorGrantForm, setCreatorGrantForm] = useState<CreatorGrantFormState>({
-    endsAt: "",
-    reason: "",
-    targetUserIds: [],
-  })
+  const [creatorGrantForm, setCreatorGrantForm] =
+    useState<CreatorGrantFormState>({
+      endsAt: "",
+      reason: "",
+      targetUserIds: [],
+    })
   const [creatorGrantConfirmationState, setCreatorGrantConfirmationState] =
     useState<CreatorGrantConfirmationState | null>(null)
-  const [isSubmittingCreatorGrant, setIsSubmittingCreatorGrant] = useState(false)
-  const billingMutation = useStaffMutation<BillingActionRequest, StaffMutationResponse>({
+  const [isSubmittingCreatorGrant, setIsSubmittingCreatorGrant] =
+    useState(false)
+  const billingMutation = useStaffMutation<
+    BillingActionRequest,
+    StaffMutationResponse
+  >({
     invalidate: ["billing"],
-    mutationFn: (request) => billingClient.runAction<StaffMutationResponse>(request),
+    mutationFn: (request) =>
+      billingClient.runAction<StaffMutationResponse>(request),
   })
   const featureLabelByKey = new Map<string, string>(
     data.features.map((feature) => [feature.key, feature.name])
@@ -639,12 +642,13 @@ export function StaffBillingView({
   const defaultAssignmentFeature =
     data.features.find((feature) => feature.active) ?? data.features[0] ?? null
   const selectedAssignmentFeature =
-    data.features.find((feature) => feature.key === assignmentEditor.featureKey) ??
-    defaultAssignmentFeature
+    data.features.find(
+      (feature) => feature.key === assignmentEditor.featureKey
+    ) ?? defaultAssignmentFeature
   const assignmentPlanKeys =
     selectedAssignmentFeature?.key === assignmentEditor.featureKey
       ? assignmentEditor.planKeys
-      : selectedAssignmentFeature?.linkedPlanKeys ?? []
+      : (selectedAssignmentFeature?.linkedPlanKeys ?? [])
   const assignmentChanged = selectedAssignmentFeature
     ? !sameKeySet(selectedAssignmentFeature.linkedPlanKeys, assignmentPlanKeys)
     : false
@@ -654,7 +658,10 @@ export function StaffBillingView({
       (plan) => plan.active && plan.name.trim().toLowerCase() === "creator"
     ) ??
     null
-  const creatorGrantRecordsByUserId = new Map<string, StaffCreatorGrantRecord | null>(
+  const creatorGrantRecordsByUserId = new Map<
+    string,
+    StaffCreatorGrantRecord | null
+  >(
     data.userDirectory.map((user) => [
       user.userId,
       getActiveCreatorGrant(data.creatorGrants, user.userId),
@@ -674,7 +681,10 @@ export function StaffBillingView({
       value: user.userId,
     }))
   const selectedCreatorUsers = creatorGrantForm.targetUserIds
-    .map((userId) => data.userDirectory.find((user) => user.userId === userId) ?? null)
+    .map(
+      (userId) =>
+        data.userDirectory.find((user) => user.userId === userId) ?? null
+    )
     .filter((user): user is StaffBillingUserLookupRecord => user !== null)
   const selectedCreatorUsersWithGrant = selectedCreatorUsers.map((user) => ({
     currentGrant: creatorGrantRecordsByUserId.get(user.userId) ?? null,
@@ -697,7 +707,9 @@ export function StaffBillingView({
       cell: ({ row }) => (
         <div className="flex flex-col gap-1">
           <span className="font-medium">{row.original.name}</span>
-          <span className="text-xs text-muted-foreground">{row.original.key}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.key}
+          </span>
         </div>
       ),
       header: "Plan",
@@ -705,7 +717,11 @@ export function StaffBillingView({
     {
       accessorKey: "planType",
       cell: ({ getValue }) => (
-        <Badge variant={getValue<"free" | "paid">() === "paid" ? "secondary" : "outline"}>
+        <Badge
+          variant={
+            getValue<"free" | "paid">() === "paid" ? "secondary" : "outline"
+          }
+        >
           {getValue<string>()}
         </Badge>
       ),
@@ -715,10 +731,18 @@ export function StaffBillingView({
       cell: ({ row }) => (
         <div className="flex flex-col gap-1">
           <span>
-            {formatCurrencyAmount(row.original.monthlyPriceAmount, row.original.currency)} / month
+            {formatCurrencyAmount(
+              row.original.monthlyPriceAmount,
+              row.original.currency
+            )}{" "}
+            / month
           </span>
           <span className="text-xs text-muted-foreground">
-            {formatCurrencyAmount(row.original.yearlyPriceAmount, row.original.currency)} / year
+            {formatCurrencyAmount(
+              row.original.yearlyPriceAmount,
+              row.original.currency
+            )}{" "}
+            / year
           </span>
         </div>
       ),
@@ -763,7 +787,9 @@ export function StaffBillingView({
     {
       accessorKey: "syncStatus",
       cell: ({ getValue }) => (
-        <SyncStatusBadge status={getValue<StaffBillingPlanRecord["syncStatus"]>()} />
+        <SyncStatusBadge
+          status={getValue<StaffBillingPlanRecord["syncStatus"]>()}
+        />
       ),
       header: "Sync",
     },
@@ -778,19 +804,25 @@ export function StaffBillingView({
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => setPlanForm(makePlanFormState("edit", row.original))}
+                onClick={() =>
+                  setPlanForm(makePlanFormState("edit", row.original))
+                }
               >
                 Edit plan
               </DropdownMenuItem>
               {row.original.planType === "paid" ? (
                 <>
                   <DropdownMenuItem
-                    onClick={() => void openReplacePriceDialog(row.original, "month")}
+                    onClick={() =>
+                      void openReplacePriceDialog(row.original, "month")
+                    }
                   >
                     Replace monthly price
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => void openReplacePriceDialog(row.original, "year")}
+                    onClick={() =>
+                      void openReplacePriceDialog(row.original, "year")
+                    }
                   >
                     Replace yearly price
                   </DropdownMenuItem>
@@ -804,7 +836,9 @@ export function StaffBillingView({
                   Archive plan
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => void restorePlan(row.original)}>
+                <DropdownMenuItem
+                  onClick={() => void restorePlan(row.original)}
+                >
                   Restore plan
                 </DropdownMenuItem>
               )}
@@ -824,7 +858,9 @@ export function StaffBillingView({
       cell: ({ row }) => (
         <div className="flex flex-col gap-1">
           <span className="font-medium">{row.original.name}</span>
-          <span className="text-xs text-muted-foreground">{row.original.key}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.original.key}
+          </span>
         </div>
       ),
       header: "Feature",
@@ -832,7 +868,9 @@ export function StaffBillingView({
     {
       accessorKey: "appliesTo",
       cell: ({ getValue }) => (
-        <Badge variant="outline">{getValue<StaffBillingFeatureRecord["appliesTo"]>()}</Badge>
+        <Badge variant="outline">
+          {getValue<StaffBillingFeatureRecord["appliesTo"]>()}
+        </Badge>
       ),
       header: "Applies to",
     },
@@ -885,7 +923,9 @@ export function StaffBillingView({
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => setFeatureForm(makeFeatureFormState("edit", row.original))}
+                onClick={() =>
+                  setFeatureForm(makeFeatureFormState("edit", row.original))
+                }
               >
                 Edit feature
               </DropdownMenuItem>
@@ -897,7 +937,9 @@ export function StaffBillingView({
                   Archive feature
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => void restoreFeature(row.original)}>
+                <DropdownMenuItem
+                  onClick={() => void restoreFeature(row.original)}
+                >
                   Restore feature
                 </DropdownMenuItem>
               )}
@@ -944,18 +986,30 @@ export function StaffBillingView({
             ))}
           </div>
         ) : (
-          <span className="text-sm text-muted-foreground">No live plan coverage</span>
+          <span className="text-sm text-muted-foreground">
+            No live plan coverage
+          </span>
         ),
       header: "Plans",
     },
     {
-      accessorKey: "hasCreatorGrant",
-      cell: ({ getValue }) =>
-        getValue<boolean>() ? (
-          <Badge variant="secondary">creator override</Badge>
-        ) : (
-          <Badge variant="outline">none</Badge>
-        ),
+      accessorKey: "creatorAccessSource",
+      cell: ({ getValue }) => {
+        const accessSource = getValue<
+          "creator_grant" | "legacy_plan" | "none" | "paid_subscription"
+        >()
+
+        switch (accessSource) {
+          case "creator_grant":
+            return <Badge variant="secondary">creator override</Badge>
+          case "paid_subscription":
+            return <Badge variant="secondary">paid plan</Badge>
+          case "legacy_plan":
+            return <Badge variant="outline">legacy plan</Badge>
+          default:
+            return <Badge variant="outline">none</Badge>
+        }
+      },
       header: "Creator access",
     },
     {
@@ -987,7 +1041,9 @@ export function StaffBillingView({
     (plan) => plan.syncStatus === "attention"
   ).length
   const archivedPlanCount = data.plans.filter((plan) => !plan.active).length
-  const archivedFeatureCount = data.features.filter((feature) => !feature.active).length
+  const archivedFeatureCount = data.features.filter(
+    (feature) => !feature.active
+  ).length
   const subscriptionAttentionCount = data.attentionSubscriptions.length
   const activeOrTrialingSubscriptionCount = data.subscriptions.filter(
     (subscription) =>
@@ -1059,10 +1115,7 @@ export function StaffBillingView({
         ? new Date(creatorGrantConfirmationState.endsAt).getTime()
         : undefined
 
-      if (
-        creatorGrantConfirmationState.endsAt &&
-        !Number.isFinite(endsAt)
-      ) {
+      if (creatorGrantConfirmationState.endsAt && !Number.isFinite(endsAt)) {
         toast.error("Enter a valid expiry before continuing.")
         return
       }
@@ -1117,9 +1170,13 @@ export function StaffBillingView({
         action: "previewPlanArchive",
         input: { planKey: plan.key },
       })
-      setArchivePlanState((current) => (current ? { ...current, preview } : current))
+      setArchivePlanState((current) =>
+        current ? { ...current, preview } : current
+      )
     } catch (error) {
-      toast.error(error instanceof StaffClientError ? error.message : "Preview failed.")
+      toast.error(
+        error instanceof StaffClientError ? error.message : "Preview failed."
+      )
     }
   }
 
@@ -1142,9 +1199,13 @@ export function StaffBillingView({
         action: "previewPriceReplacement",
         input: { interval, planKey: plan.key },
       })
-      setReplacePriceState((current) => (current ? { ...current, preview } : current))
+      setReplacePriceState((current) =>
+        current ? { ...current, preview } : current
+      )
     } catch (error) {
-      toast.error(error instanceof StaffClientError ? error.message : "Preview failed.")
+      toast.error(
+        error instanceof StaffClientError ? error.message : "Preview failed."
+      )
     }
   }
 
@@ -1160,9 +1221,13 @@ export function StaffBillingView({
         action: "previewFeatureArchive",
         input: { featureKey: feature.key },
       })
-      setArchiveFeatureState((current) => (current ? { ...current, preview } : current))
+      setArchiveFeatureState((current) =>
+        current ? { ...current, preview } : current
+      )
     } catch (error) {
-      toast.error(error instanceof StaffClientError ? error.message : "Preview failed.")
+      toast.error(
+        error instanceof StaffClientError ? error.message : "Preview failed."
+      )
     }
   }
 
@@ -1194,7 +1259,10 @@ export function StaffBillingView({
     const existingPlan = data.plans.find((plan) => plan.key === planForm.key)
     const nextFeatureKeys = normalizeKeys(planForm.featureKeys)
 
-    if (existingPlan && !sameKeySet(existingPlan.includedFeatureKeys, nextFeatureKeys)) {
+    if (
+      existingPlan &&
+      !sameKeySet(existingPlan.includedFeatureKeys, nextFeatureKeys)
+    ) {
       try {
         const preview = await billingClient.runAction<StaffImpactPreview>({
           action: "previewPlanFeatureSync",
@@ -1228,7 +1296,9 @@ export function StaffBillingView({
       await persistPlan({ ...planForm, featureKeys: nextFeatureKeys })
     } catch (error) {
       toast.error(
-        error instanceof StaffClientError ? error.message : "Plan update failed."
+        error instanceof StaffClientError
+          ? error.message
+          : "Plan update failed."
       )
     }
   }
@@ -1255,7 +1325,9 @@ export function StaffBillingView({
       setFeatureForm(null)
     } catch (error) {
       toast.error(
-        error instanceof StaffClientError ? error.message : "Feature update failed."
+        error instanceof StaffClientError
+          ? error.message
+          : "Feature update failed."
       )
     }
   }
@@ -1280,7 +1352,9 @@ export function StaffBillingView({
       await handleMutationResult(result)
     } catch (error) {
       toast.error(
-        error instanceof StaffClientError ? error.message : "Plan restore failed."
+        error instanceof StaffClientError
+          ? error.message
+          : "Plan restore failed."
       )
     }
   }
@@ -1302,7 +1376,9 @@ export function StaffBillingView({
       await handleMutationResult(result)
     } catch (error) {
       toast.error(
-        error instanceof StaffClientError ? error.message : "Feature restore failed."
+        error instanceof StaffClientError
+          ? error.message
+          : "Feature restore failed."
       )
     }
   }
@@ -1315,7 +1391,9 @@ export function StaffBillingView({
       })
       await handleMutationResult(result)
     } catch (error) {
-      toast.error(error instanceof StaffClientError ? error.message : "Sync failed.")
+      toast.error(
+        error instanceof StaffClientError ? error.message : "Sync failed."
+      )
     }
   }
 
@@ -1368,7 +1446,10 @@ export function StaffBillingView({
         <MetricCard label="Plans" value={data.plans.length} />
         <MetricCard label="Features" value={data.features.length} />
         <MetricCard label="Customers" value={data.customers.length} />
-        <MetricCard label="Active subscriptions" value={data.activeSubscriptionCount} />
+        <MetricCard
+          label="Active subscriptions"
+          value={data.activeSubscriptionCount}
+        />
         <MetricCard
           label="Last sync"
           value={data.lastSync ? data.lastSync.result : "Never"}
@@ -1404,7 +1485,9 @@ export function StaffBillingView({
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Archived features</span>
+                  <span className="text-muted-foreground">
+                    Archived features
+                  </span>
                   <span className="font-medium">{archivedFeatureCount}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
@@ -1426,7 +1509,9 @@ export function StaffBillingView({
               </CardHeader>
               <CardContent className="grid gap-4">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Last sync result</span>
+                  <span className="text-muted-foreground">
+                    Last sync result
+                  </span>
                   <span className="font-medium">
                     {data.lastSync ? data.lastSync.result : "Never"}
                   </span>
@@ -1434,7 +1519,9 @@ export function StaffBillingView({
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">Last synced</span>
                   <span className="font-medium">
-                    {data.lastSync ? formatDateTime(data.lastSync.syncedAt) : "Never"}
+                    {data.lastSync
+                      ? formatDateTime(data.lastSync.syncedAt)
+                      : "Never"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
@@ -1444,14 +1531,18 @@ export function StaffBillingView({
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Recent sync records</span>
+                  <span className="text-muted-foreground">
+                    Recent sync records
+                  </span>
                   <span className="font-medium">{recentSyncLogs.length}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">
                     Recent billing events
                   </span>
-                  <span className="font-medium">{recentBillingActivity.length}</span>
+                  <span className="font-medium">
+                    {recentBillingActivity.length}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -1461,8 +1552,8 @@ export function StaffBillingView({
             <CardHeader>
               <CardTitle>Recent billing activity</CardTitle>
               <CardDescription>
-                Latest catalog edits, assignment changes, and manual sync
-                events recorded by staff tooling.
+                Latest catalog edits, assignment changes, and manual sync events
+                recorded by staff tooling.
               </CardDescription>
             </CardHeader>
             <CardContent className="rounded-lg border border-border/70 p-0">
@@ -1534,8 +1625,9 @@ export function StaffBillingView({
               <CardHeader>
                 <CardTitle>Webhook health</CardTitle>
                 <CardDescription>
-                  Reconciliation health across recent Stripe webhook traffic. Failures
-                  and processing backlog should be triaged before local billing state drifts.
+                  Reconciliation health across recent Stripe webhook traffic.
+                  Failures and processing backlog should be triaged before local
+                  billing state drifts.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-6">
@@ -1561,7 +1653,9 @@ export function StaffBillingView({
                             formatter={(value, name) => (
                               <>
                                 <span className="text-muted-foreground">
-                                  {name === "failedCount" ? "Failed" : "Processed"}
+                                  {name === "failedCount"
+                                    ? "Failed"
+                                    : "Processed"}
                                 </span>
                                 <span className="ml-auto font-mono font-medium">
                                   {Number(value).toLocaleString()}
@@ -1594,7 +1688,9 @@ export function StaffBillingView({
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-                    <div className="text-sm font-medium">Processing posture</div>
+                    <div className="text-sm font-medium">
+                      Processing posture
+                    </div>
                     <div className="mt-3 grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-muted-foreground">Processed</span>
@@ -1609,7 +1705,9 @@ export function StaffBillingView({
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Processing</span>
+                        <span className="text-muted-foreground">
+                          Processing
+                        </span>
                         <span className="font-medium">
                           {data.webhookMetrics.processingCount}
                         </span>
@@ -1623,10 +1721,14 @@ export function StaffBillingView({
                     </div>
                   </div>
                   <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
-                    <div className="text-sm font-medium">Latest delivery state</div>
+                    <div className="text-sm font-medium">
+                      Latest delivery state
+                    </div>
                     <div className="mt-3 grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Last received</span>
+                        <span className="text-muted-foreground">
+                          Last received
+                        </span>
                         <span className="font-medium">
                           {data.webhookMetrics.lastReceivedAt
                             ? formatDateTime(data.webhookMetrics.lastReceivedAt)
@@ -1634,22 +1736,32 @@ export function StaffBillingView({
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Last processed</span>
+                        <span className="text-muted-foreground">
+                          Last processed
+                        </span>
                         <span className="font-medium">
                           {data.webhookMetrics.lastProcessedAt
-                            ? formatDateTime(data.webhookMetrics.lastProcessedAt)
+                            ? formatDateTime(
+                                data.webhookMetrics.lastProcessedAt
+                              )
                             : "Not yet"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Raw received rows</span>
+                        <span className="text-muted-foreground">
+                          Raw received rows
+                        </span>
                         <span className="font-medium">
                           {data.webhookMetrics.receivedCount}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Cancel at period end</span>
-                        <span className="font-medium">{cancelAtPeriodEndCount}</span>
+                        <span className="text-muted-foreground">
+                          Cancel at period end
+                        </span>
+                        <span className="font-medium">
+                          {cancelAtPeriodEndCount}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1661,21 +1773,27 @@ export function StaffBillingView({
               <CardHeader>
                 <CardTitle>Customer footprint</CardTitle>
                 <CardDescription>
-                  Support coverage across billing customers, active subscriptions,
-                  and creator overrides.
+                  Support coverage across billing customers, active
+                  subscriptions, and creator overrides.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Billing customers</span>
+                  <span className="text-muted-foreground">
+                    Billing customers
+                  </span>
                   <span className="font-medium">{data.customers.length}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Active customers</span>
+                  <span className="text-muted-foreground">
+                    Active customers
+                  </span>
                   <span className="font-medium">{activeCustomerCount}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Customers with active subscriptions</span>
+                  <span className="text-muted-foreground">
+                    Customers with active subscriptions
+                  </span>
                   <span className="font-medium">
                     {
                       data.customers.filter(
@@ -1685,19 +1803,35 @@ export function StaffBillingView({
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Customers with creator access</span>
+                  <span className="text-muted-foreground">
+                    Customers with creator access
+                  </span>
                   <span className="font-medium">
-                    {data.customers.filter((customer) => customer.hasCreatorGrant).length}
+                    {
+                      data.customers.filter(
+                        (customer) => customer.hasCreatorAccess
+                      ).length
+                    }
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Tracked plans in use</span>
+                  <span className="text-muted-foreground">
+                    Tracked plans in use
+                  </span>
                   <span className="font-medium">
-                    {new Set(data.subscriptions.map((subscription) => subscription.planKey)).size}
+                    {
+                      new Set(
+                        data.subscriptions.map(
+                          (subscription) => subscription.planKey
+                        )
+                      ).size
+                    }
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-muted-foreground">Inactive customer records</span>
+                  <span className="text-muted-foreground">
+                    Inactive customer records
+                  </span>
                   <span className="font-medium">
                     {data.customers.length - activeCustomerCount}
                   </span>
@@ -1711,8 +1845,8 @@ export function StaffBillingView({
               <CardHeader>
                 <CardTitle>Attention-needed subscriptions</CardTitle>
                 <CardDescription>
-                  Payment failures and action-required subscriptions that support
-                  staff should watch most closely.
+                  Payment failures and action-required subscriptions that
+                  support staff should watch most closely.
                 </CardDescription>
               </CardHeader>
               <CardContent className="rounded-lg border border-border/70 p-0">
@@ -1732,7 +1866,9 @@ export function StaffBillingView({
                         <TableRow key={subscription.stripeSubscriptionId}>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <span className="font-medium">{subscription.userName}</span>
+                              <span className="font-medium">
+                                {subscription.userName}
+                              </span>
                               <span className="text-xs text-muted-foreground">
                                 {subscription.email ?? subscription.clerkUserId}
                               </span>
@@ -1775,7 +1911,8 @@ export function StaffBillingView({
               <CardHeader>
                 <CardTitle>Recent webhook events</CardTitle>
                 <CardDescription>
-                  Safe summaries from the event ledger for reconciliation debugging.
+                  Safe summaries from the event ledger for reconciliation
+                  debugging.
                 </CardDescription>
               </CardHeader>
               <CardContent className="rounded-lg border border-border/70 p-0">
@@ -1799,9 +1936,11 @@ export function StaffBillingView({
                             {event.eventType}
                           </TableCell>
                           <TableCell>
-                            <WebhookStatusBadge status={event.processingStatus} />
+                            <WebhookStatusBadge
+                              status={event.processingStatus}
+                            />
                           </TableCell>
-                          <TableCell className="max-w-lg whitespace-normal text-sm text-muted-foreground">
+                          <TableCell className="max-w-lg text-sm whitespace-normal text-muted-foreground">
                             {event.safeSummary}
                             {event.errorMessage ? (
                               <span className="block text-destructive">
@@ -1851,7 +1990,9 @@ export function StaffBillingView({
                       <TableRow key={subscription.stripeSubscriptionId}>
                         <TableCell>
                           <div className="flex flex-col gap-1">
-                            <span className="font-medium">{subscription.userName}</span>
+                            <span className="font-medium">
+                              {subscription.userName}
+                            </span>
                             <span className="text-xs text-muted-foreground">
                               {subscription.email ?? subscription.clerkUserId}
                             </span>
@@ -1896,140 +2037,289 @@ export function StaffBillingView({
       ) : null}
 
       {section === "catalog-plans" ? (
-          <Card className="border-border/70">
-            <CardHeader>
-              <CardTitle>Plans</CardTitle>
-              <CardDescription>
-                Create, edit, archive, and replace managed billing plans and prices.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StaffDataTable
-                columns={planColumns}
-                data={data.plans}
-                emptyDescription="Create the first billing plan to start syncing catalog data."
-                emptyTitle="No plans yet"
-                getRowId={(row) => row.key}
-                searchPlaceholder="Search plans"
-                toolbar={
-                  <Button onClick={() => setPlanForm(makePlanFormState("create"))}>
-                    New plan
-                  </Button>
-                }
-              />
-            </CardContent>
-          </Card>
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Plans</CardTitle>
+            <CardDescription>
+              Create, edit, archive, and replace managed billing plans and
+              prices.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StaffDataTable
+              columns={planColumns}
+              data={data.plans}
+              emptyDescription="Create the first billing plan to start syncing catalog data."
+              emptyTitle="No plans yet"
+              getRowId={(row) => row.key}
+              searchPlaceholder="Search plans"
+              toolbar={
+                <Button
+                  onClick={() => setPlanForm(makePlanFormState("create"))}
+                >
+                  New plan
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       ) : null}
 
       {section === "catalog-features" ? (
-          <Card className="border-border/70">
-            <CardHeader>
-              <CardTitle>Features</CardTitle>
-              <CardDescription>
-                Distinguish entitlement features from marketing-only copy and keep assignments explicit.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StaffDataTable
-                columns={featureColumns}
-                data={data.features}
-                emptyDescription="Create the first feature to start mapping plans to entitlements."
-                emptyTitle="No features yet"
-                getRowId={(row) => row.key}
-                searchPlaceholder="Search features"
-                toolbar={
-                  <Button onClick={() => setFeatureForm(makeFeatureFormState("create"))}>
-                    New feature
-                  </Button>
-                }
-              />
-            </CardContent>
-          </Card>
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Features</CardTitle>
+            <CardDescription>
+              Distinguish entitlement features from marketing-only copy and keep
+              assignments explicit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StaffDataTable
+              columns={featureColumns}
+              data={data.features}
+              emptyDescription="Create the first feature to start mapping plans to entitlements."
+              emptyTitle="No features yet"
+              getRowId={(row) => row.key}
+              searchPlaceholder="Search features"
+              toolbar={
+                <Button
+                  onClick={() => setFeatureForm(makeFeatureFormState("create"))}
+                >
+                  New feature
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
       ) : null}
 
       {section === "catalog-assignments" ? (
+        <div className="grid gap-6">
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Assignment editor</CardTitle>
+              <CardDescription>
+                Pick a feature, choose every plan it should belong to, and
+                review the impact before syncing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-6">
+              {selectedAssignmentFeature ? (
+                <>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+                    <Field>
+                      <FieldLabel>Feature</FieldLabel>
+                      <NativeSelect
+                        onChange={(event) => {
+                          const nextFeature = data.features.find(
+                            (feature) => feature.key === event.target.value
+                          )
+
+                          setAssignmentEditor({
+                            featureKey: event.target.value,
+                            planKeys: nextFeature?.linkedPlanKeys ?? [],
+                          })
+                        }}
+                        value={selectedAssignmentFeature.key}
+                      >
+                        {data.features
+                          .filter((feature) => feature.active)
+                          .map((feature) => (
+                            <NativeSelectOption
+                              key={feature.key}
+                              value={feature.key}
+                            >
+                              {feature.name}
+                            </NativeSelectOption>
+                          ))}
+                      </NativeSelect>
+                      <FieldDescription>
+                        Archived features cannot be assigned to plans.
+                      </FieldDescription>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel>Assigned plans</FieldLabel>
+                      <MultiSelectCombobox
+                        emptyLabel="No plans match this search."
+                        onChange={(values) =>
+                          setAssignmentEditor((current) => ({
+                            ...current,
+                            featureKey: selectedAssignmentFeature.key,
+                            planKeys: values,
+                          }))
+                        }
+                        options={planOptions}
+                        placeholder="Search plans"
+                        value={assignmentPlanKeys}
+                      />
+                      <FieldDescription>
+                        Removing a plan here detaches the feature on the next
+                        sync. Saving uses the exact set shown above.
+                      </FieldDescription>
+                    </Field>
+                  </div>
+
+                  <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1 text-sm">
+                      <div className="font-medium">
+                        {selectedAssignmentFeature.name} is currently linked to{" "}
+                        {selectedAssignmentFeature.linkedPlanKeys.length}{" "}
+                        plan(s).
+                      </div>
+                      <div className="text-muted-foreground">
+                        Review the impact before changing entitlement or
+                        marketing coverage.
+                      </div>
+                    </div>
+                    <Button
+                      disabled={!assignmentChanged || billingMutation.isPending}
+                      onClick={() => void reviewFeatureAssignments()}
+                    >
+                      Review assignment impact
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                  Create an active feature before configuring assignments.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Plan-feature matrix</CardTitle>
+              <CardDescription>
+                Review what each plan includes before changing entitlements or
+                marketing copy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feature</TableHead>
+                    {data.plans.map((plan) => (
+                      <TableHead key={plan.key}>{plan.name}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.features.map((feature) => (
+                    <TableRow key={feature.key}>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{feature.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {feature.appliesTo}
+                          </span>
+                        </div>
+                      </TableCell>
+                      {data.plans.map((plan) => (
+                        <TableCell key={`${plan.key}:${feature.key}`}>
+                          <Badge
+                            variant={
+                              plan.includedFeatureKeys.includes(feature.key)
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {plan.includedFeatureKeys.includes(feature.key)
+                              ? "Included"
+                              : "Not included"}
+                          </Badge>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {section === "catalog-operations" ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Catalog sync</CardTitle>
+              <CardDescription>
+                Convex remains the editable source of truth. Sync pushes the
+                current managed catalog to Stripe.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 text-sm">
+                {data.lastSync
+                  ? data.lastSync.summary
+                  : "No sync has completed yet."}
+              </div>
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Last sync</span>
+                  <span className="font-medium">
+                    {data.lastSync
+                      ? formatDateTime(data.lastSync.syncedAt)
+                      : "Never"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Warnings</span>
+                  <span className="font-medium">
+                    {data.lastSync?.warningCount ?? 0}
+                  </span>
+                </div>
+              </div>
+              <Button
+                disabled={billingMutation.isPending}
+                onClick={() => void runManualSync()}
+              >
+                <IconPlugConnected data-icon="inline-start" />
+                Run manual sync
+              </Button>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-6">
             <Card className="border-border/70">
               <CardHeader>
-                <CardTitle>Assignment editor</CardTitle>
+                <CardTitle>Plans needing attention</CardTitle>
                 <CardDescription>
-                  Pick a feature, choose every plan it should belong to, and review the impact before syncing.
+                  Paid plans without a complete Stripe product or price shape
+                  are listed here for cleanup.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-6">
-                {selectedAssignmentFeature ? (
-                  <>
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
-                      <Field>
-                        <FieldLabel>Feature</FieldLabel>
-                        <NativeSelect
-                          onChange={(event) => {
-                            const nextFeature = data.features.find(
-                              (feature) => feature.key === event.target.value
-                            )
-
-                            setAssignmentEditor({
-                              featureKey: event.target.value,
-                              planKeys: nextFeature?.linkedPlanKeys ?? [],
-                            })
-                          }}
-                          value={selectedAssignmentFeature.key}
-                        >
-                          {data.features
-                            .filter((feature) => feature.active)
-                            .map((feature) => (
-                              <NativeSelectOption key={feature.key} value={feature.key}>
-                                {feature.name}
-                              </NativeSelectOption>
-                            ))}
-                        </NativeSelect>
-                        <FieldDescription>
-                          Archived features cannot be assigned to plans.
-                        </FieldDescription>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>Assigned plans</FieldLabel>
-                        <MultiSelectCombobox
-                          emptyLabel="No plans match this search."
-                          onChange={(values) =>
-                            setAssignmentEditor((current) => ({
-                              ...current,
-                              featureKey: selectedAssignmentFeature.key,
-                              planKeys: values,
-                            }))
-                          }
-                          options={planOptions}
-                          placeholder="Search plans"
-                          value={assignmentPlanKeys}
-                        />
-                        <FieldDescription>
-                          Removing a plan here detaches the feature on the next sync. Saving uses the exact set shown above.
-                        </FieldDescription>
-                      </Field>
-                    </div>
-
-                    <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4 md:flex-row md:items-center md:justify-between">
-                      <div className="space-y-1 text-sm">
-                        <div className="font-medium">
-                          {selectedAssignmentFeature.name} is currently linked to{" "}
-                          {selectedAssignmentFeature.linkedPlanKeys.length} plan(s).
+              <CardContent className="grid gap-3">
+                {syncAttentionPlanCount > 0 ? (
+                  data.plans
+                    .filter((plan) => plan.syncStatus === "attention")
+                    .map((plan) => (
+                      <div
+                        className="flex items-center justify-between gap-4 rounded-lg border border-border/70 px-4 py-3"
+                        key={plan.key}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{plan.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {plan.key}
+                          </span>
                         </div>
-                        <div className="text-muted-foreground">
-                          Review the impact before changing entitlement or marketing coverage.
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            {plan.activeSubscriptionCount} active
+                            subscription(s)
+                          </span>
+                          <SyncStatusBadge status={plan.syncStatus} />
                         </div>
                       </div>
-                      <Button
-                        disabled={!assignmentChanged || billingMutation.isPending}
-                        onClick={() => void reviewFeatureAssignments()}
-                      >
-                        Review assignment impact
-                      </Button>
-                    </div>
-                  </>
+                    ))
                 ) : (
                   <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                    Create an active feature before configuring assignments.
+                    No plans currently require sync remediation.
                   </div>
                 )}
               </CardContent>
@@ -2037,231 +2327,102 @@ export function StaffBillingView({
 
             <Card className="border-border/70">
               <CardHeader>
-                <CardTitle>Plan-feature matrix</CardTitle>
+                <CardTitle>Recent sync history</CardTitle>
                 <CardDescription>
-                  Review what each plan includes before changing entitlements or marketing copy.
+                  Most recent manual or automatic Stripe catalog sync results.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent className="rounded-lg border border-border/70 p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Feature</TableHead>
-                      {data.plans.map((plan) => (
-                        <TableHead key={plan.key}>{plan.name}</TableHead>
-                      ))}
+                      <TableHead>When</TableHead>
+                      <TableHead>Summary</TableHead>
+                      <TableHead>Result</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.features.map((feature) => (
-                      <TableRow key={feature.key}>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">{feature.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {feature.appliesTo}
-                            </span>
-                          </div>
-                        </TableCell>
-                        {data.plans.map((plan) => (
-                          <TableCell key={`${plan.key}:${feature.key}`}>
-                            <Badge
-                              variant={
-                                plan.includedFeatureKeys.includes(feature.key)
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {plan.includedFeatureKeys.includes(feature.key)
-                                ? "Included"
-                                : "Not included"}
-                            </Badge>
+                    {recentSyncLogs.length > 0 ? (
+                      recentSyncLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDateTime(log.createdAt)}
                           </TableCell>
-                        ))}
+                          <TableCell className="max-w-2xl whitespace-normal">
+                            {log.summary}
+                          </TableCell>
+                          <TableCell>
+                            <BillingAuditResultBadge result={log.result} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          className="py-8 text-center text-sm text-muted-foreground"
+                          colSpan={3}
+                        >
+                          No sync records have been captured yet.
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
           </div>
-      ) : null}
-
-      {section === "catalog-operations" ? (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-            <Card className="border-border/70">
-              <CardHeader>
-                <CardTitle>Catalog sync</CardTitle>
-                <CardDescription>
-                  Convex remains the editable source of truth. Sync pushes the
-                  current managed catalog to Stripe.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 text-sm">
-                  {data.lastSync ? data.lastSync.summary : "No sync has completed yet."}
-                </div>
-                <div className="grid gap-3 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Last sync</span>
-                    <span className="font-medium">
-                      {data.lastSync ? formatDateTime(data.lastSync.syncedAt) : "Never"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Warnings</span>
-                    <span className="font-medium">
-                      {data.lastSync?.warningCount ?? 0}
-                    </span>
-                  </div>
-                </div>
-                <Button
-                  disabled={billingMutation.isPending}
-                  onClick={() => void runManualSync()}
-                >
-                  <IconPlugConnected data-icon="inline-start" />
-                  Run manual sync
-                </Button>
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-6">
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Plans needing attention</CardTitle>
-                  <CardDescription>
-                    Paid plans without a complete Stripe product or price shape
-                    are listed here for cleanup.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3">
-                  {syncAttentionPlanCount > 0 ? (
-                    data.plans
-                      .filter((plan) => plan.syncStatus === "attention")
-                      .map((plan) => (
-                        <div
-                          className="flex items-center justify-between gap-4 rounded-lg border border-border/70 px-4 py-3"
-                          key={plan.key}
-                        >
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">{plan.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {plan.key}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-muted-foreground">
-                              {plan.activeSubscriptionCount} active subscription(s)
-                            </span>
-                            <SyncStatusBadge status={plan.syncStatus} />
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                      No plans currently require sync remediation.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70">
-                <CardHeader>
-                  <CardTitle>Recent sync history</CardTitle>
-                  <CardDescription>
-                    Most recent manual or automatic Stripe catalog sync results.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="rounded-lg border border-border/70 p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>When</TableHead>
-                        <TableHead>Summary</TableHead>
-                        <TableHead>Result</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recentSyncLogs.length > 0 ? (
-                        recentSyncLogs.map((log) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatDateTime(log.createdAt)}
-                            </TableCell>
-                            <TableCell className="max-w-2xl whitespace-normal">
-                              {log.summary}
-                            </TableCell>
-                            <TableCell>
-                              <BillingAuditResultBadge result={log.result} />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell
-                            className="py-8 text-center text-sm text-muted-foreground"
-                            colSpan={3}
-                          >
-                            No sync records have been captured yet.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+        </div>
       ) : null}
 
       {section === "catalog-audit" ? (
-          <Card className="border-border/70">
-            <CardHeader>
-              <CardTitle>Billing audit log</CardTitle>
-              <CardDescription>
-                Catalog changes, sync runs, assignment updates, and destructive operations are captured here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="rounded-lg border border-border/70 p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Summary</TableHead>
-                    <TableHead>Result</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.auditLogs.length > 0 ? (
-                    data.auditLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDateTime(log.createdAt)}
-                        </TableCell>
-                        <TableCell>{log.action}</TableCell>
-                        <TableCell className="max-w-xl whitespace-normal">
-                          {log.summary}
-                        </TableCell>
-                        <TableCell>
-                          <BillingAuditResultBadge result={log.result} />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        className="py-8 text-center text-sm text-muted-foreground"
-                        colSpan={4}
-                      >
-                        No audit entries are available yet.
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle>Billing audit log</CardTitle>
+            <CardDescription>
+              Catalog changes, sync runs, assignment updates, and destructive
+              operations are captured here.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="rounded-lg border border-border/70 p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Summary</TableHead>
+                  <TableHead>Result</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.auditLogs.length > 0 ? (
+                  data.auditLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDateTime(log.createdAt)}
+                      </TableCell>
+                      <TableCell>{log.action}</TableCell>
+                      <TableCell className="max-w-xl whitespace-normal">
+                        {log.summary}
+                      </TableCell>
+                      <TableCell>
+                        <BillingAuditResultBadge result={log.result} />
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      className="py-8 text-center text-sm text-muted-foreground"
+                      colSpan={4}
+                    >
+                      No audit entries are available yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : null}
 
       {section === "subscriptions-customers" ? (
@@ -2305,11 +2466,14 @@ export function StaffBillingView({
                     <Field>
                       <FieldLabel>Managed plan</FieldLabel>
                       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                        <Badge variant={creatorAccessPlan ? "secondary" : "outline"}>
+                        <Badge
+                          variant={creatorAccessPlan ? "secondary" : "outline"}
+                        >
                           {creatorAccessPlan?.name ?? "Creator plan missing"}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          This flow only grants the dedicated Creator override plan.
+                          This flow only grants the dedicated Creator override
+                          plan.
                         </span>
                       </div>
                     </Field>
@@ -2328,8 +2492,8 @@ export function StaffBillingView({
                         value={creatorGrantForm.targetUserIds}
                       />
                       <FieldDescription>
-                        Users with an active Creator override are excluded from the
-                        selection list.
+                        Users with an active Creator override are excluded from
+                        the selection list.
                       </FieldDescription>
                     </Field>
                     <Field>
@@ -2380,7 +2544,8 @@ export function StaffBillingView({
                   </FieldGroup>
                 ) : (
                   <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                    Creator access grants are restricted to admins and super-admins.
+                    Creator access grants are restricted to admins and
+                    super-admins.
                   </div>
                 )}
               </CardContent>
@@ -2390,53 +2555,62 @@ export function StaffBillingView({
               <CardHeader>
                 <CardTitle>Selected access preview</CardTitle>
                 <CardDescription>
-                  Review the effective state for the selected users before opening
-                  the confirmation dialog.
+                  Review the effective state for the selected users before
+                  opening the confirmation dialog.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3">
                 {selectedCreatorUsersWithGrant.length > 0 ? (
-                  selectedCreatorUsersWithGrant.map(({ currentGrant, user }) => (
-                    <div
-                      className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4"
-                      key={user.userId}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-medium">{user.userName}</div>
-                          <div className="truncate text-sm text-muted-foreground">
-                            {user.email ?? user.clerkUserId}
+                  selectedCreatorUsersWithGrant.map(
+                    ({ currentGrant, user }) => (
+                      <div
+                        className="rounded-lg border border-border/70 bg-muted/20 px-4 py-4"
+                        key={user.userId}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium">{user.userName}</div>
+                            <div className="truncate text-sm text-muted-foreground">
+                              {user.email ?? user.clerkUserId}
+                            </div>
                           </div>
+                          <BillingAccessSourceBadge
+                            source={user.accessSource}
+                          />
                         </div>
-                        <BillingAccessSourceBadge source={user.accessSource} />
-                      </div>
-                      <div className="mt-3 grid gap-2 text-sm">
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-muted-foreground">Effective plan</span>
-                          <span className="font-medium">
-                            {user.currentPlanKey ?? "none"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-muted-foreground">Creator override</span>
-                          <span className="font-medium">
-                            {currentGrant ? "Active" : "Not active"}
-                          </span>
-                        </div>
-                        {currentGrant ? (
-                          <div className="text-xs text-muted-foreground">
-                            Existing override: {currentGrant.planKey}
-                            {currentGrant.endsAt
-                              ? ` until ${formatDateTime(currentGrant.endsAt)}`
-                              : " with no expiry"}
+                        <div className="mt-3 grid gap-2 text-sm">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              Effective plan
+                            </span>
+                            <span className="font-medium">
+                              {user.currentPlanKey ?? "none"}
+                            </span>
                           </div>
-                        ) : null}
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              Creator override
+                            </span>
+                            <span className="font-medium">
+                              {currentGrant ? "Active" : "Not active"}
+                            </span>
+                          </div>
+                          {currentGrant ? (
+                            <div className="text-xs text-muted-foreground">
+                              Existing override: {currentGrant.planKey}
+                              {currentGrant.endsAt
+                                ? ` until ${formatDateTime(currentGrant.endsAt)}`
+                                : " with no expiry"}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  )
                 ) : (
                   <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                    Add one or more users to preview the affected Creator access state.
+                    Add one or more users to preview the affected Creator access
+                    state.
                   </div>
                 )}
               </CardContent>
@@ -2447,8 +2621,8 @@ export function StaffBillingView({
             <CardHeader>
               <CardTitle>Creator grant ledger</CardTitle>
               <CardDescription>
-                Active and historical Creator overrides with audit-friendly reason
-                text and timing.
+                Active and historical Creator overrides with audit-friendly
+                reason text and timing.
               </CardDescription>
             </CardHeader>
             <CardContent className="rounded-lg border border-border/70 p-0">
@@ -2467,7 +2641,9 @@ export function StaffBillingView({
                       <TableRow key={grant.id}>
                         <TableCell>
                           <div className="flex flex-col gap-1">
-                            <span className="font-medium">{grant.userName}</span>
+                            <span className="font-medium">
+                              {grant.userName}
+                            </span>
                             <span className="text-xs text-muted-foreground">
                               {grant.email ?? grant.clerkUserId}
                             </span>
@@ -2475,11 +2651,13 @@ export function StaffBillingView({
                         </TableCell>
                         <TableCell>{grant.planKey}</TableCell>
                         <TableCell>
-                          <Badge variant={grant.active ? "secondary" : "outline"}>
+                          <Badge
+                            variant={grant.active ? "secondary" : "outline"}
+                          >
                             {grant.active ? "active" : "inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-sm whitespace-normal text-sm text-muted-foreground">
+                        <TableCell className="max-w-sm text-sm whitespace-normal text-muted-foreground">
                           {grant.startsAt
                             ? `From ${formatDateTime(grant.startsAt)}`
                             : "Start not set"}
@@ -2535,7 +2713,9 @@ export function StaffBillingView({
                     <TableRow key={subscription.stripeSubscriptionId}>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium">{subscription.userName}</span>
+                          <span className="font-medium">
+                            {subscription.userName}
+                          </span>
                           <span className="text-xs text-muted-foreground">
                             {subscription.email ?? subscription.clerkUserId}
                           </span>
@@ -2552,13 +2732,16 @@ export function StaffBillingView({
                           status={subscription.attentionStatus ?? "none"}
                         />
                       </TableCell>
-                      <TableCell className="max-w-[16rem] break-all text-xs text-muted-foreground">
+                      <TableCell className="max-w-[16rem] text-xs break-all text-muted-foreground">
                         {subscription.stripePriceId}
                       </TableCell>
-                      <TableCell className="max-w-[18rem] whitespace-normal text-sm text-muted-foreground">
+                      <TableCell className="max-w-[18rem] text-sm whitespace-normal text-muted-foreground">
                         {subscription.scheduledChangeType ? (
                           <>
-                            {subscription.scheduledChangeType.replaceAll("_", " ")}
+                            {subscription.scheduledChangeType.replaceAll(
+                              "_",
+                              " "
+                            )}
                             {subscription.scheduledPlanKey
                               ? ` -> ${subscription.scheduledPlanKey}`
                               : ""}
@@ -2584,14 +2767,14 @@ export function StaffBillingView({
                   ))
                 ) : (
                   <TableRow>
-                      <TableCell
-                        className="py-8 text-center text-sm text-muted-foreground"
-                        colSpan={7}
-                      >
-                        No active subscription records are available.
-                      </TableCell>
-                    </TableRow>
-                  )}
+                    <TableCell
+                      className="py-8 text-center text-sm text-muted-foreground"
+                      colSpan={7}
+                    >
+                      No active subscription records are available.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -2634,7 +2817,9 @@ export function StaffBillingView({
             setArchivePlanState(null)
           } catch (error) {
             toast.error(
-              error instanceof StaffClientError ? error.message : "Archive failed."
+              error instanceof StaffClientError
+                ? error.message
+                : "Archive failed."
             )
           }
         }}
@@ -2663,7 +2848,9 @@ export function StaffBillingView({
             setReplacePriceState(null)
           } catch (error) {
             toast.error(
-              error instanceof StaffClientError ? error.message : "Price replacement failed."
+              error instanceof StaffClientError
+                ? error.message
+                : "Price replacement failed."
             )
           }
         }}
@@ -2690,7 +2877,9 @@ export function StaffBillingView({
             setArchiveFeatureState(null)
           } catch (error) {
             toast.error(
-              error instanceof StaffClientError ? error.message : "Feature archive failed."
+              error instanceof StaffClientError
+                ? error.message
+                : "Feature archive failed."
             )
           }
         }}
@@ -2711,7 +2900,9 @@ export function StaffBillingView({
             setPlanFeatureSyncState(null)
           } catch (error) {
             toast.error(
-              error instanceof StaffClientError ? error.message : "Plan update failed."
+              error instanceof StaffClientError
+                ? error.message
+                : "Plan update failed."
             )
           }
         }}
@@ -2809,7 +3000,10 @@ function PlanFormDialog(args: {
     args.planForm?.mode === "edit" && args.planForm.planType === "paid"
 
   return (
-    <Dialog open={Boolean(args.planForm)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.planForm)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -2884,7 +3078,10 @@ function PlanFormDialog(args: {
                   onChange={(event) =>
                     args.setPlanForm((current) =>
                       current
-                        ? { ...current, currency: event.target.value.toLowerCase() }
+                        ? {
+                            ...current,
+                            currency: event.target.value.toLowerCase(),
+                          }
                         : current
                     )
                   }
@@ -2896,7 +3093,9 @@ function PlanFormDialog(args: {
                 <Input
                   onChange={(event) =>
                     args.setPlanForm((current) =>
-                      current ? { ...current, sortOrder: event.target.value } : current
+                      current
+                        ? { ...current, sortOrder: event.target.value }
+                        : current
                     )
                   }
                   type="number"
@@ -2936,7 +3135,9 @@ function PlanFormDialog(args: {
                 />
                 {pricesLocked ? (
                   <FieldDescription>
-                    Replace existing paid prices from the plan row actions so the new monthly price becomes the Stripe default before the old one is archived.
+                    Replace existing paid prices from the plan row actions so
+                    the new monthly price becomes the Stripe default before the
+                    old one is archived.
                   </FieldDescription>
                 ) : null}
               </Field>
@@ -2957,7 +3158,8 @@ function PlanFormDialog(args: {
                 />
               </div>
               <FieldDescription>
-                Removing a feature here detaches it from the plan. Existing plan edits show impact before saving.
+                Removing a feature here detaches it from the plan. Existing plan
+                edits show impact before saving.
               </FieldDescription>
             </Field>
           </FieldGroup>
@@ -2984,11 +3186,16 @@ function FeatureFormDialog(args: {
   setFeatureForm: Dispatch<SetStateAction<FeatureFormState | null>>
 }) {
   return (
-    <Dialog open={Boolean(args.featureForm)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.featureForm)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {args.featureForm?.mode === "edit" ? "Edit feature" : "Create feature"}
+            {args.featureForm?.mode === "edit"
+              ? "Edit feature"
+              : "Create feature"}
           </DialogTitle>
           <DialogDescription>
             Features can drive entitlements, marketing copy, or both.
@@ -3042,7 +3249,8 @@ function FeatureFormDialog(args: {
                       current
                         ? {
                             ...current,
-                            appliesTo: event.target.value as FeatureFormState["appliesTo"],
+                            appliesTo: event.target
+                              .value as FeatureFormState["appliesTo"],
                           }
                         : current
                     )
@@ -3050,8 +3258,12 @@ function FeatureFormDialog(args: {
                   value={args.featureForm.appliesTo}
                 >
                   <NativeSelectOption value="both">Both</NativeSelectOption>
-                  <NativeSelectOption value="entitlement">Entitlement</NativeSelectOption>
-                  <NativeSelectOption value="marketing">Marketing</NativeSelectOption>
+                  <NativeSelectOption value="entitlement">
+                    Entitlement
+                  </NativeSelectOption>
+                  <NativeSelectOption value="marketing">
+                    Marketing
+                  </NativeSelectOption>
                 </NativeSelect>
               </Field>
               <Field>
@@ -3059,7 +3271,9 @@ function FeatureFormDialog(args: {
                 <Input
                   onChange={(event) =>
                     args.setFeatureForm((current) =>
-                      current ? { ...current, category: event.target.value } : current
+                      current
+                        ? { ...current, category: event.target.value }
+                        : current
                     )
                   }
                   value={args.featureForm.category}
@@ -3070,7 +3284,9 @@ function FeatureFormDialog(args: {
                 <Input
                   onChange={(event) =>
                     args.setFeatureForm((current) =>
-                      current ? { ...current, sortOrder: event.target.value } : current
+                      current
+                        ? { ...current, sortOrder: event.target.value }
+                        : current
                     )
                   }
                   type="number"
@@ -3102,12 +3318,16 @@ function ArchivePlanDialog(args: {
   state: ArchivePlanState | null
 }) {
   return (
-    <Dialog open={Boolean(args.state)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.state)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Archive plan</DialogTitle>
           <DialogDescription>
-            Type the plan key before this product and its prices are archived in Stripe.
+            Type the plan key before this product and its prices are archived in
+            Stripe.
           </DialogDescription>
         </DialogHeader>
 
@@ -3123,7 +3343,10 @@ function ArchivePlanDialog(args: {
                   onChange={(event) =>
                     args.setState((current) =>
                       current
-                        ? { ...current, cancelAtPeriodEnd: event.target.checked }
+                        ? {
+                            ...current,
+                            cancelAtPeriodEnd: event.target.checked,
+                          }
                         : current
                     )
                   }
@@ -3132,15 +3355,20 @@ function ArchivePlanDialog(args: {
                 Mark impacted subscriptions to cancel at period end
               </label>
               <FieldDescription>
-                Leave this unchecked to keep existing subscribers on their current Stripe subscriptions.
+                Leave this unchecked to keep existing subscribers on their
+                current Stripe subscriptions.
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel>Type {args.state.preview?.confirmationToken}</FieldLabel>
+              <FieldLabel>
+                Type {args.state.preview?.confirmationToken}
+              </FieldLabel>
               <Input
                 onChange={(event) =>
                   args.setState((current) =>
-                    current ? { ...current, confirmation: event.target.value } : current
+                    current
+                      ? { ...current, confirmation: event.target.value }
+                      : current
                   )
                 }
                 value={args.state.confirmation}
@@ -3156,7 +3384,8 @@ function ArchivePlanDialog(args: {
           <Button
             disabled={
               args.billingMutationPending ||
-              args.state?.confirmation !== args.state?.preview?.confirmationToken
+              args.state?.confirmation !==
+                args.state?.preview?.confirmationToken
             }
             onClick={args.onConfirm}
           >
@@ -3176,12 +3405,17 @@ function ReplacePriceDialog(args: {
   state: ReplacePriceState | null
 }) {
   return (
-    <Dialog open={Boolean(args.state)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.state)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Replace plan price</DialogTitle>
           <DialogDescription>
-            This creates a new Stripe price, promotes the new monthly price to the product default when applicable, and archives the superseded price.
+            This creates a new Stripe price, promotes the new monthly price to
+            the product default when applicable, and archives the superseded
+            price.
           </DialogDescription>
         </DialogHeader>
 
@@ -3193,7 +3427,9 @@ function ReplacePriceDialog(args: {
               <Input
                 onChange={(event) =>
                   args.setState((current) =>
-                    current ? { ...current, amount: event.target.value } : current
+                    current
+                      ? { ...current, amount: event.target.value }
+                      : current
                   )
                 }
                 type="number"
@@ -3201,7 +3437,9 @@ function ReplacePriceDialog(args: {
               />
             </Field>
             <Field>
-              <FieldLabel>Type {args.state.preview?.confirmationToken}</FieldLabel>
+              <FieldLabel>
+                Type {args.state.preview?.confirmationToken}
+              </FieldLabel>
               <Input
                 onChange={(event) =>
                   args.setState((current) =>
@@ -3223,7 +3461,8 @@ function ReplacePriceDialog(args: {
           <Button
             disabled={
               args.billingMutationPending ||
-              args.state?.confirmation !== args.state?.preview?.confirmationToken
+              args.state?.confirmation !==
+                args.state?.preview?.confirmationToken
             }
             onClick={args.onConfirm}
           >
@@ -3243,19 +3482,25 @@ function ArchiveFeatureDialog(args: {
   state: ArchiveFeatureState | null
 }) {
   return (
-    <Dialog open={Boolean(args.state)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.state)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Archive feature</DialogTitle>
           <DialogDescription>
-            This removes the feature from plan assignments and from future Stripe sync output.
+            This removes the feature from plan assignments and from future
+            Stripe sync output.
           </DialogDescription>
         </DialogHeader>
         {args.state ? (
           <FieldGroup>
             <ImpactSummary preview={args.state.preview} />
             <Field>
-              <FieldLabel>Type {args.state.preview?.confirmationToken}</FieldLabel>
+              <FieldLabel>
+                Type {args.state.preview?.confirmationToken}
+              </FieldLabel>
               <Input
                 onChange={(event) =>
                   args.setState((current) =>
@@ -3276,7 +3521,8 @@ function ArchiveFeatureDialog(args: {
           <Button
             disabled={
               args.billingMutationPending ||
-              args.state?.confirmation !== args.state?.preview?.confirmationToken
+              args.state?.confirmation !==
+                args.state?.preview?.confirmationToken
             }
             onClick={args.onConfirm}
           >
@@ -3296,12 +3542,16 @@ function PlanFeatureSyncDialog(args: {
   state: PlanFeatureSyncState | null
 }) {
   return (
-    <Dialog open={Boolean(args.state)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.state)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Review feature changes</DialogTitle>
           <DialogDescription>
-            Confirm the subscription impact before saving this plan&apos;s included features.
+            Confirm the subscription impact before saving this plan&apos;s
+            included features.
           </DialogDescription>
         </DialogHeader>
 
@@ -3322,7 +3572,10 @@ function PlanFeatureSyncDialog(args: {
           <Button onClick={args.onClose} variant="outline">
             Cancel
           </Button>
-          <Button disabled={args.billingMutationPending} onClick={args.onConfirm}>
+          <Button
+            disabled={args.billingMutationPending}
+            onClick={args.onConfirm}
+          >
             Save feature changes
           </Button>
         </DialogFooter>
@@ -3339,12 +3592,16 @@ function FeatureAssignmentSyncDialog(args: {
   state: FeatureAssignmentSyncState | null
 }) {
   return (
-    <Dialog open={Boolean(args.state)} onOpenChange={(open) => !open && args.onClose()}>
+    <Dialog
+      open={Boolean(args.state)}
+      onOpenChange={(open) => !open && args.onClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Review assignment changes</DialogTitle>
           <DialogDescription>
-            Confirm the entitlement and marketing impact before updating this feature&apos;s plan coverage.
+            Confirm the entitlement and marketing impact before updating this
+            feature&apos;s plan coverage.
           </DialogDescription>
         </DialogHeader>
 
@@ -3365,7 +3622,10 @@ function FeatureAssignmentSyncDialog(args: {
           <Button onClick={args.onClose} variant="outline">
             Cancel
           </Button>
-          <Button disabled={args.billingMutationPending} onClick={args.onConfirm}>
+          <Button
+            disabled={args.billingMutationPending}
+            onClick={args.onConfirm}
+          >
             Save assignments
           </Button>
         </DialogFooter>
@@ -3391,8 +3651,8 @@ function GrantCreatorAccessConfirmationDialog(args: {
         <AlertDialogHeader className="items-start text-left">
           <AlertDialogTitle>Confirm Creator access grant</AlertDialogTitle>
           <AlertDialogDescription>
-            This will apply the managed Creator override to the selected users and
-            record the reason in billing audit history.
+            This will apply the managed Creator override to the selected users
+            and record the reason in billing audit history.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -3407,9 +3667,7 @@ function GrantCreatorAccessConfirmationDialog(args: {
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Users</span>
-                <span className="font-medium">
-                  {args.selectedUsers.length}
-                </span>
+                <span className="font-medium">{args.selectedUsers.length}</span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Expiry</span>
@@ -3430,7 +3688,9 @@ function GrantCreatorAccessConfirmationDialog(args: {
                     key={user.userId}
                   >
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{user.userName}</div>
+                      <div className="truncate font-medium">
+                        {user.userName}
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {user.email ?? user.clerkUserId}
                       </div>

@@ -27,13 +27,23 @@ export declare const api: {
         cancelCurrentSubscription: FunctionReference<
           "action",
           "public",
-          {},
+          { stripeSubscriptionId?: string },
           any
         >;
         changeSubscriptionPlan: FunctionReference<
           "action",
           "public",
-          { interval: "month" | "year"; planKey: string },
+          {
+            interval: "month" | "year";
+            planKey: string;
+            stripeSubscriptionId?: string;
+          },
+          any
+        >;
+        createPaymentMethodSetupIntent: FunctionReference<
+          "action",
+          "public",
+          {},
           any
         >;
         createSubscriptionIntent: FunctionReference<
@@ -42,17 +52,52 @@ export declare const api: {
           { attemptKey?: string; interval: "month" | "year"; planKey: string },
           any
         >;
-        listInvoices: FunctionReference<"action", "public", {}, any>;
         previewSubscriptionChange: FunctionReference<
           "action",
           "public",
-          { interval: "month" | "year"; planKey: string },
+          {
+            interval: "month" | "year";
+            planKey: string;
+            stripeSubscriptionId?: string;
+          },
           any
         >;
         reactivateCurrentSubscription: FunctionReference<
           "action",
           "public",
-          {},
+          { stripeSubscriptionId?: string },
+          any
+        >;
+        removePaymentMethod: FunctionReference<
+          "action",
+          "public",
+          { paymentMethodId: string },
+          any
+        >;
+        setDefaultPaymentMethod: FunctionReference<
+          "action",
+          "public",
+          { paymentMethodId: string },
+          any
+        >;
+        syncBillingCenter: FunctionReference<"action", "public", {}, any>;
+        updateBillingProfile: FunctionReference<
+          "action",
+          "public",
+          {
+            address?: {
+              city?: string;
+              country?: string;
+              line1?: string;
+              line2?: string;
+              postalCode?: string;
+              state?: string;
+            };
+            businessName?: string;
+            email?: string;
+            name?: string;
+            phone?: string;
+          },
           any
         >;
       };
@@ -387,6 +432,14 @@ export declare const api: {
           any
         >;
       };
+      center: {
+        getCurrentUserBillingCenter: FunctionReference<
+          "query",
+          "public",
+          {},
+          any
+        >;
+      };
       entitlements: {
         currentUserHasFeature: FunctionReference<
           "query",
@@ -700,6 +753,16 @@ export declare const internal: {
           { stripeSubscriptionId: string },
           any
         >;
+        deleteBillingSubscriptionsMissingFromSync: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            stripeCustomerId: string;
+            stripeSubscriptionIds: Array<string>;
+            userId: Id<"users">;
+          },
+          any
+        >;
         grantBillingAccessGrant: FunctionReference<
           "mutation",
           "internal",
@@ -772,15 +835,90 @@ export declare const internal: {
           },
           any
         >;
+        syncBillingInvoices: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            clerkUserId: string;
+            invoices: Array<{
+              amountDue: number;
+              amountPaid: number;
+              currency: string;
+              description: string;
+              hostedInvoiceUrl?: string;
+              invoiceIssuedAt: number;
+              invoiceNumber?: string;
+              invoicePdfUrl?: string;
+              paymentMethodBrand?: string;
+              paymentMethodLast4?: string;
+              paymentMethodType?: string;
+              status: string;
+              stripeInvoiceId: string;
+              stripeSubscriptionId?: string;
+            }>;
+            stripeCustomerId: string;
+            userId: Id<"users">;
+          },
+          any
+        >;
+        syncBillingPaymentMethods: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            clerkUserId: string;
+            defaultPaymentMethodId?: string;
+            paymentMethods: Array<{
+              bankName?: string;
+              billingAddress?: {
+                city?: string;
+                country?: string;
+                line1?: string;
+                line2?: string;
+                postalCode?: string;
+                state?: string;
+              };
+              brand?: string;
+              cardholderName?: string;
+              expMonth?: number;
+              expYear?: number;
+              last4?: string;
+              stripePaymentMethodId: string;
+              type: string;
+            }>;
+            stripeCustomerId: string;
+            userId: Id<"users">;
+          },
+          any
+        >;
         upsertBillingCustomer: FunctionReference<
           "mutation",
           "internal",
           {
             active: boolean;
+            billingAddress?: {
+              city?: string;
+              country?: string;
+              line1?: string;
+              line2?: string;
+              postalCode?: string;
+              state?: string;
+            };
+            businessName?: string;
             clerkUserId: string;
+            defaultPaymentMethodId?: string;
             email?: string;
+            lastSyncedAt?: number;
             name?: string;
+            phone?: string;
             stripeCustomerId: string;
+            taxExempt?: "none" | "exempt" | "reverse";
+            taxIds?: Array<{
+              country?: string;
+              stripeTaxIdId: string;
+              type: string;
+              value: string;
+              verificationStatus?: string;
+            }>;
             userId: Id<"users">;
           },
           any
@@ -803,15 +941,18 @@ export declare const internal: {
             clerkUserId: string;
             currentPeriodEnd?: number;
             currentPeriodStart?: number;
+            defaultPaymentMethodId?: string;
             endedAt?: number;
             interval: "month" | "year";
             lastStripeEventId?: string;
             planKey: string;
+            quantity?: number;
             scheduledChangeAt?: number;
             scheduledChangeRequestedAt?: number;
             scheduledChangeType?: "cancel" | "plan_change";
             scheduledInterval?: "month" | "year";
             scheduledPlanKey?: string;
+            startedAt?: number;
             status:
               | "incomplete"
               | "trialing"
@@ -829,6 +970,8 @@ export declare const internal: {
             stripeScheduleId?: string;
             stripeSubscriptionId: string;
             stripeSubscriptionItemId?: string;
+            trialEnd?: number;
+            trialStart?: number;
             userId: Id<"users">;
           },
           any
@@ -1019,6 +1162,12 @@ export declare const internal: {
           { stripeCustomerId: string },
           any
         >;
+        getBillingSubscriptionByStripeSubscriptionIdForUser: FunctionReference<
+          "query",
+          "internal",
+          { stripeSubscriptionId: string; userId: Id<"users"> },
+          any
+        >;
         getCurrentCreatorGrantByUserId: FunctionReference<
           "query",
           "internal",
@@ -1041,6 +1190,12 @@ export declare const internal: {
           "query",
           "internal",
           { clerkUserId: string },
+          any
+        >;
+        listBillingSubscriptionsByUserId: FunctionReference<
+          "query",
+          "internal",
+          { userId: Id<"users"> },
           any
         >;
       };

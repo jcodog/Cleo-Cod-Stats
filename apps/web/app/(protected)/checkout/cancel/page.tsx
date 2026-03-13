@@ -15,8 +15,8 @@ export default function CheckoutCancelPage() {
         <CardHeader>
           <CardTitle>Checkout cancelled</CardTitle>
           <CardDescription>
-            No billing change was finalized. You can return to checkout or review
-            the current billing state from the portal.
+            No billing change was finalized. You can return to checkout or
+            review the current billing state from billing.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row">
@@ -24,7 +24,7 @@ export default function CheckoutCancelPage() {
             <Link href="/checkout">Back to checkout</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/settings/billing">Open billing portal</Link>
+            <Link href="/settings/billing">Open billing</Link>
           </Button>
         </CardContent>
       </Card>

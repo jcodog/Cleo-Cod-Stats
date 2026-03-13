@@ -13,6 +13,23 @@ export type BillingAttentionStatus =
 
 export type BillingInterval = "month" | "year"
 
+export type BillingAddress = {
+  city?: string | null
+  country?: string | null
+  line1?: string | null
+  line2?: string | null
+  postalCode?: string | null
+  state?: string | null
+}
+
+export type BillingTaxId = {
+  country?: string | null
+  stripeTaxIdId: string
+  type: string
+  value: string
+  verificationStatus?: string | null
+}
+
 export type PricingCatalogPlan = {
   active: boolean
   description: string
@@ -26,20 +43,16 @@ export type PricingCatalogPlan = {
   planKey: string
   planType: "free" | "paid"
   pricing: {
-    month:
-      | {
-          amount: number
-          currency: string
-          interval: "month"
-        }
-      | null
-    year:
-      | {
-          amount: number
-          currency: string
-          interval: "year"
-        }
-      | null
+    month: {
+      amount: number
+      currency: string
+      interval: "month"
+    } | null
+    year: {
+      amount: number
+      currency: string
+      interval: "year"
+    } | null
   }
   relationship: "checkout" | "current" | "downgrade" | "switch" | "upgrade"
   sortOrder: number
@@ -104,6 +117,101 @@ export type BillingResolvedState = {
   } | null
 }
 
+export type BillingCenterData = {
+  billingProfile: {
+    address: BillingAddress | null
+    businessName: string | null
+    canEdit: boolean
+    country: string | null
+    defaultPaymentMethodId: string | null
+    email: string | null
+    name: string | null
+    phone: string | null
+    stripeCustomerId: string | null
+    taxExempt: "exempt" | "none" | "reverse" | null
+    taxIds: BillingTaxId[]
+  }
+  invoices: BillingCenterInvoice[]
+  lastSyncedAt: number | null
+  paymentMethods: BillingCenterPaymentMethod[]
+  portalMode: "acquisition" | "management"
+  subscriptions: BillingCenterSubscription[]
+}
+
+export type BillingCenterPaymentMethod = {
+  address: BillingAddress | null
+  bankName: string | null
+  brand: string | null
+  cardholderName: string | null
+  expMonth: number | null
+  expYear: number | null
+  isDefault: boolean
+  last4: string | null
+  stripePaymentMethodId: string
+  type: string
+}
+
+export type BillingCenterSubscription = {
+  amount: number | null
+  attentionStatus: BillingAttentionStatus
+  billingInterval: BillingInterval
+  cancelAt: number | null
+  cancelAtPeriodEnd: boolean
+  canceledAt: number | null
+  currentPeriodEnd: number | null
+  currentPeriodStart: number | null
+  currency: string | null
+  defaultPaymentMethodId: string | null
+  defaultPaymentMethodSummary: {
+    brand: string | null
+    last4: string | null
+    type: string
+  } | null
+  endedAt: number | null
+  isManageable: boolean
+  planKey: string
+  productName: string
+  quantity: number
+  scheduledChange: {
+    effectiveAt: number
+    interval: BillingInterval | null
+    planKey: string | null
+    planName: string | null
+    type: "cancel" | "plan_change"
+  } | null
+  startedAt: number | null
+  status:
+    | "active"
+    | "canceled"
+    | "incomplete"
+    | "incomplete_expired"
+    | "past_due"
+    | "paused"
+    | "trialing"
+    | "unpaid"
+  stripeSubscriptionId: string
+  trialEnd: number | null
+  trialStart: number | null
+}
+
+export type BillingCenterInvoice = {
+  amountDue: number
+  amountPaid: number
+  currency: string
+  description: string
+  hostedInvoiceUrl: string | null
+  invoiceNumber: string | null
+  invoicePdfUrl: string | null
+  issuedAt: number
+  paymentMethodBrand: string | null
+  paymentMethodLast4: string | null
+  paymentMethodType: string | null
+  relatedProductName: string | null
+  relatedSubscriptionId: string | null
+  status: string
+  stripeInvoiceId: string
+}
+
 export type CheckoutIntentResult = {
   alreadyExists: boolean
   clientSecret?: string
@@ -123,7 +231,11 @@ export type BillingChangePreview = {
   currentPlanKey: string
   effectiveAt: number | null
   interval: BillingInterval
-  mode: "cancel_at_period_end" | "immediate_change" | "noop" | "scheduled_change"
+  mode:
+    | "cancel_at_period_end"
+    | "immediate_change"
+    | "noop"
+    | "scheduled_change"
   planKey: string
   prorationBehavior: "always_invoice" | "none"
   summary: string
@@ -149,15 +261,22 @@ export type ReactivationResult = {
   status: string
 }
 
-export type InvoiceHistoryEntry = {
-  amountDue: number
-  amountPaid: number
-  createdAt: number
-  currency: string
-  description: string
-  hostedInvoiceUrl?: string
-  interval?: BillingInterval
-  invoiceNumber?: string
-  invoicePdfUrl?: string
-  status: string
+export type BillingCenterSyncResult = {
+  hasCustomer: boolean
+  syncedAt: number
+}
+
+export type BillingProfileUpdateResult = {
+  updated: boolean
+}
+
+export type PaymentMethodSetupIntentResult = {
+  clientSecret: string
+  secretType: "setup_intent"
+}
+
+export type PaymentMethodMutationResult = {
+  defaultPaymentMethodId?: string
+  removed?: boolean
+  updated?: boolean
 }

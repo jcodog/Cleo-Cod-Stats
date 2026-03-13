@@ -45,6 +45,28 @@ function getBarWidth(value: number, max: number) {
   return `${Math.max((value / max) * 100, 8)}%`
 }
 
+function formatDateTime(value: number | null | undefined) {
+  if (!value || !Number.isFinite(value)) {
+    return "Not recorded"
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value)
+}
+
+function formatDayLabel(value: number) {
+  if (!Number.isFinite(value)) {
+    return "Unknown"
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+  }).format(value)
+}
+
 function getSyncBadge(args: StaffOverviewDashboard["lastSync"]) {
   if (!args) {
     return <Badge variant="outline">Not run yet</Badge>
@@ -113,25 +135,27 @@ export function StaffOverviewView({
             ? "Trialing"
             : status === "paused"
               ? "Paused"
-                : "Active",
+              : "Active",
     })
   )
   const totalSubscriptions = subscriptionBreakdown.reduce(
     (sum, item) => sum + item.count,
     0
   )
-  const activityBreakdown = overview.activityTimeline.map(({ count, dayStart }) => ({
-    count,
-    label: new Intl.DateTimeFormat("en-GB", {
-      day: "numeric",
-      month: "short",
-    }).format(dayStart),
-  }))
+  const activityBreakdown = overview.activityTimeline.map(
+    ({ count, dayStart }) => ({
+      count,
+      label: formatDayLabel(dayStart),
+    })
+  )
   const maxSubscriptionCount = Math.max(
     ...subscriptionBreakdown.map((item) => item.count),
     0
   )
-  const maxActivityCount = Math.max(...activityBreakdown.map((item) => item.count), 0)
+  const maxActivityCount = Math.max(
+    ...activityBreakdown.map((item) => item.count),
+    0
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-8">
@@ -140,8 +164,8 @@ export function StaffOverviewView({
           Overview
         </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Monitor user coverage, billing health, and recent privileged activity from
-          the {` ${STAFF_CONSOLE_TITLE.toLowerCase()}`}.
+          Monitor user coverage, billing health, and recent privileged activity
+          from the {` ${STAFF_CONSOLE_TITLE.toLowerCase()}`}.
         </p>
       </div>
 
@@ -220,12 +244,7 @@ export function StaffOverviewView({
             },
             {
               label: "Last run",
-              value: overview.lastSync
-                ? new Intl.DateTimeFormat("en-GB", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(overview.lastSync.syncedAt)
-                : "Not recorded",
+              value: formatDateTime(overview.lastSync?.syncedAt),
             },
           ]}
           title="Latest Sync"
@@ -255,14 +274,16 @@ export function StaffOverviewView({
                   <div className="grid gap-2" key={item.label}>
                     <div className="flex items-center justify-between gap-4 text-sm">
                       <div className="font-medium">{item.label}</div>
-                      <div className="tabular-nums text-muted-foreground">
+                      <div className="text-muted-foreground tabular-nums">
                         {item.count}
                       </div>
                     </div>
                     <div className="h-2 rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-foreground/80"
-                        style={{ width: getBarWidth(item.count, maxSubscriptionCount) }}
+                        style={{
+                          width: getBarWidth(item.count, maxSubscriptionCount),
+                        }}
                       />
                     </div>
                   </div>
@@ -290,14 +311,16 @@ export function StaffOverviewView({
                   <div className="grid gap-2" key={item.label}>
                     <div className="flex items-center justify-between gap-4 text-sm">
                       <div className="font-medium">{item.label}</div>
-                      <div className="tabular-nums text-muted-foreground">
+                      <div className="text-muted-foreground tabular-nums">
                         {item.count}
                       </div>
                     </div>
                     <div className="h-2 rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-foreground/70"
-                        style={{ width: getBarWidth(item.count, maxActivityCount) }}
+                        style={{
+                          width: getBarWidth(item.count, maxActivityCount),
+                        }}
                       />
                     </div>
                   </div>
@@ -316,7 +339,8 @@ export function StaffOverviewView({
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
           <CardDescription>
-            The latest staff events that are relevant to the current operator role.
+            The latest staff events that are relevant to the current operator
+            role.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">

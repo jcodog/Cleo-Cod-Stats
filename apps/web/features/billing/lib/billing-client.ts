@@ -7,23 +7,33 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api } from "@workspace/backend/convex/_generated/api"
 
 import type {
+  BillingCenterData,
+  BillingCenterSyncResult,
   BillingChangePreview,
   BillingChangeResult,
+  BillingProfileUpdateResult,
   BillingResolvedState,
   CancellationResult,
   CheckoutIntentResult,
-  InvoiceHistoryEntry,
+  PaymentMethodMutationResult,
+  PaymentMethodSetupIntentResult,
   PricingCatalogResponse,
   ReactivationResult,
 } from "@/features/billing/lib/billing-types"
 import { billingQueryKeys } from "@/features/billing/lib/billing-query-keys"
 import type {
   CreateSubscriptionIntentInput,
+  PaymentMethodActionInput,
   SubscriptionChangeInput,
+  SubscriptionTargetInput,
+  UpdateBillingProfileInput,
 } from "@/features/billing/lib/billing-schemas"
 import {
   createSubscriptionIntentSchema,
+  paymentMethodActionSchema,
   subscriptionChangeSchema,
+  subscriptionTargetSchema,
+  updateBillingProfileSchema,
 } from "@/features/billing/lib/billing-schemas"
 
 export class BillingClientError extends Error {
@@ -72,6 +82,28 @@ async function queryBillingState(convex: ConvexReactClient) {
       api.queries.billing.state.getCurrentUserBillingState,
       {}
     )) as BillingResolvedState | null
+  } catch (error) {
+    throw toBillingClientError(error)
+  }
+}
+
+async function queryBillingCenter(convex: ConvexReactClient) {
+  try {
+    return (await convex.query(
+      api.queries.billing.center.getCurrentUserBillingCenter,
+      {}
+    )) as BillingCenterData | null
+  } catch (error) {
+    throw toBillingClientError(error)
+  }
+}
+
+async function callSyncBillingCenter(convex: ConvexReactClient) {
+  try {
+    return (await convex.action(
+      api.actions.billing.customer.syncBillingCenter,
+      {}
+    )) as BillingCenterSyncResult
   } catch (error) {
     throw toBillingClientError(error)
   }
@@ -140,34 +172,92 @@ async function callChangeSubscription(
   }
 }
 
-async function callCancelSubscription(convex: ConvexReactClient) {
+async function callCancelSubscription(
+  convex: ConvexReactClient,
+  input: SubscriptionTargetInput
+) {
+  const payload = subscriptionTargetSchema.parse(input)
+
   try {
     return (await convex.action(
       api.actions.billing.customer.cancelCurrentSubscription,
-      {}
+      payload
     )) as CancellationResult
   } catch (error) {
     throw toBillingClientError(error)
   }
 }
 
-async function callReactivateSubscription(convex: ConvexReactClient) {
+async function callReactivateSubscription(
+  convex: ConvexReactClient,
+  input: SubscriptionTargetInput
+) {
+  const payload = subscriptionTargetSchema.parse(input)
+
   try {
     return (await convex.action(
       api.actions.billing.customer.reactivateCurrentSubscription,
-      {}
+      payload
     )) as ReactivationResult
   } catch (error) {
     throw toBillingClientError(error)
   }
 }
 
-async function callInvoiceHistory(convex: ConvexReactClient) {
+async function callUpdateBillingProfile(
+  convex: ConvexReactClient,
+  input: UpdateBillingProfileInput
+) {
+  const payload = updateBillingProfileSchema.parse(input)
+
   try {
     return (await convex.action(
-      api.actions.billing.customer.listInvoices,
+      api.actions.billing.customer.updateBillingProfile,
+      payload
+    )) as BillingProfileUpdateResult
+  } catch (error) {
+    throw toBillingClientError(error)
+  }
+}
+
+async function callCreatePaymentMethodSetupIntent(convex: ConvexReactClient) {
+  try {
+    return (await convex.action(
+      api.actions.billing.customer.createPaymentMethodSetupIntent,
       {}
-    )) as InvoiceHistoryEntry[]
+    )) as PaymentMethodSetupIntentResult
+  } catch (error) {
+    throw toBillingClientError(error)
+  }
+}
+
+async function callSetDefaultPaymentMethod(
+  convex: ConvexReactClient,
+  input: PaymentMethodActionInput
+) {
+  const payload = paymentMethodActionSchema.parse(input)
+
+  try {
+    return (await convex.action(
+      api.actions.billing.customer.setDefaultPaymentMethod,
+      payload
+    )) as PaymentMethodMutationResult
+  } catch (error) {
+    throw toBillingClientError(error)
+  }
+}
+
+async function callRemovePaymentMethod(
+  convex: ConvexReactClient,
+  input: PaymentMethodActionInput
+) {
+  const payload = paymentMethodActionSchema.parse(input)
+
+  try {
+    return (await convex.action(
+      api.actions.billing.customer.removePaymentMethod,
+      payload
+    )) as PaymentMethodMutationResult
   } catch (error) {
     throw toBillingClientError(error)
   }
@@ -197,15 +287,15 @@ export function useBillingState() {
   })
 }
 
-export function useInvoiceHistory(args?: { enabled?: boolean }) {
+export function useBillingCenter() {
   const convex = useConvex()
   const { isAuthenticated, isLoading } = useConvexAuth()
 
   return useQuery({
-    enabled: (args?.enabled ?? true) && !isLoading && isAuthenticated,
-    queryFn: () => callInvoiceHistory(convex),
-    queryKey: billingQueryKeys.invoices,
-    staleTime: 60_000,
+    enabled: !isLoading && isAuthenticated,
+    queryFn: () => queryBillingCenter(convex),
+    queryKey: billingQueryKeys.center,
+    staleTime: 15_000,
   })
 }
 
@@ -216,22 +306,34 @@ export function useInvalidateBillingQueries() {
     invalidateAll: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: billingQueryKeys.catalog }),
+        queryClient.invalidateQueries({ queryKey: billingQueryKeys.center }),
         queryClient.invalidateQueries({ queryKey: billingQueryKeys.state }),
-        queryClient.invalidateQueries({ queryKey: billingQueryKeys.invoices }),
       ])
     },
   }
 }
 
+export function useSyncBillingCenter() {
+  const convex = useConvex()
+  const invalidateBilling = useInvalidateBillingQueries()
+
+  return useMutation({
+    mutationFn: () => callSyncBillingCenter(convex),
+    onSuccess: async () => {
+      await invalidateBilling.invalidateAll()
+    },
+  })
+}
+
 export function useCreateSubscriptionIntent() {
   const convex = useConvex()
-  const queryClient = useQueryClient()
+  const invalidateBilling = useInvalidateBillingQueries()
 
   return useMutation({
     mutationFn: (input: CreateSubscriptionIntentInput) =>
       callCreateSubscriptionIntent(convex, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: billingQueryKeys.state })
+      await invalidateBilling.invalidateAll()
     },
   })
 }
@@ -275,7 +377,8 @@ export function useCancelSubscription() {
   const invalidateBilling = useInvalidateBillingQueries()
 
   return useMutation({
-    mutationFn: () => callCancelSubscription(convex),
+    mutationFn: (input: SubscriptionTargetInput) =>
+      callCancelSubscription(convex, input),
     onSuccess: async () => {
       await invalidateBilling.invalidateAll()
     },
@@ -287,7 +390,55 @@ export function useReactivateSubscription() {
   const invalidateBilling = useInvalidateBillingQueries()
 
   return useMutation({
-    mutationFn: () => callReactivateSubscription(convex),
+    mutationFn: (input: SubscriptionTargetInput) =>
+      callReactivateSubscription(convex, input),
+    onSuccess: async () => {
+      await invalidateBilling.invalidateAll()
+    },
+  })
+}
+
+export function useUpdateBillingProfile() {
+  const convex = useConvex()
+  const invalidateBilling = useInvalidateBillingQueries()
+
+  return useMutation({
+    mutationFn: (input: UpdateBillingProfileInput) =>
+      callUpdateBillingProfile(convex, input),
+    onSuccess: async () => {
+      await invalidateBilling.invalidateAll()
+    },
+  })
+}
+
+export function useCreatePaymentMethodSetupIntent() {
+  const convex = useConvex()
+
+  return useMutation({
+    mutationFn: () => callCreatePaymentMethodSetupIntent(convex),
+  })
+}
+
+export function useSetDefaultPaymentMethod() {
+  const convex = useConvex()
+  const invalidateBilling = useInvalidateBillingQueries()
+
+  return useMutation({
+    mutationFn: (input: PaymentMethodActionInput) =>
+      callSetDefaultPaymentMethod(convex, input),
+    onSuccess: async () => {
+      await invalidateBilling.invalidateAll()
+    },
+  })
+}
+
+export function useRemovePaymentMethod() {
+  const convex = useConvex()
+  const invalidateBilling = useInvalidateBillingQueries()
+
+  return useMutation({
+    mutationFn: (input: PaymentMethodActionInput) =>
+      callRemovePaymentMethod(convex, input),
     onSuccess: async () => {
       await invalidateBilling.invalidateAll()
     },

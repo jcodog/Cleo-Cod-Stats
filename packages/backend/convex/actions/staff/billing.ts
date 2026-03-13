@@ -5,7 +5,10 @@ import { action } from "../../_generated/server"
 import { internal } from "../../_generated/api"
 import { maskIdentifier } from "../../lib/billing"
 import { requireAuthorizedStaffAction } from "../../lib/staffActionAuth"
-import { resolveBillingFeatureApplyMode, type UserRole } from "../../lib/staffRoles"
+import {
+  resolveBillingFeatureApplyMode,
+  type UserRole,
+} from "../../lib/staffRoles"
 import type {
   StaffAuditLogEntry,
   StaffBillingCustomerRecord,
@@ -79,7 +82,9 @@ function maskBillingIdentifier(
   return maskIdentifier(value, { full: options.full })
 }
 
-function getAccessGrantPriority(source: "creator_approval" | "manual" | "promo") {
+function getAccessGrantPriority(
+  source: "creator_approval" | "manual" | "promo"
+) {
   switch (source) {
     case "creator_approval":
       return 3
@@ -90,11 +95,14 @@ function getAccessGrantPriority(source: "creator_approval" | "manual" | "promo")
   }
 }
 
-function isActiveAccessGrant(args: {
-  active: boolean
-  endsAt?: number
-  startsAt?: number
-}, now: number) {
+function isActiveAccessGrant(
+  args: {
+    active: boolean
+    endsAt?: number
+    startsAt?: number
+  },
+  now: number
+) {
   if (!args.active) {
     return false
   }
@@ -120,7 +128,10 @@ function uniqueAssignments(
   const byCompositeKey = new Map<string, (typeof assignments)[number]>()
 
   for (const assignment of assignments) {
-    byCompositeKey.set(`${assignment.planKey}:${assignment.featureKey}`, assignment)
+    byCompositeKey.set(
+      `${assignment.planKey}:${assignment.featureKey}`,
+      assignment
+    )
   }
 
   return Array.from(byCompositeKey.values())
@@ -256,7 +267,9 @@ function getPlanKeyDelta(args: {
   const nextPlanKeys = new Set(args.nextPlanKeys)
 
   return {
-    addedPlanKeys: args.nextPlanKeys.filter((planKey) => !previousPlanKeys.has(planKey)),
+    addedPlanKeys: args.nextPlanKeys.filter(
+      (planKey) => !previousPlanKeys.has(planKey)
+    ),
     removedPlanKeys: args.previousPlanKeys.filter(
       (planKey) => !nextPlanKeys.has(planKey)
     ),
@@ -272,7 +285,12 @@ function buildSubscriptionRows(args: {
     stripeCustomerId: string
   }>
   subscriptions: Array<{
-    attentionStatus: "none" | "past_due" | "paused" | "payment_failed" | "requires_action"
+    attentionStatus:
+      | "none"
+      | "past_due"
+      | "paused"
+      | "payment_failed"
+      | "requires_action"
     cancelAt?: number
     cancelAtPeriodEnd: boolean
     clerkUserId: string
@@ -326,9 +344,10 @@ function buildSubscriptionRows(args: {
         stripeCustomerId: maskBillingIdentifier(subscription.stripeCustomerId, {
           full: args.fullIdentifiers,
         }),
-        stripePriceId: maskBillingIdentifier(subscription.stripePriceId, {
-          full: args.fullIdentifiers,
-        }) ?? subscription.stripePriceId,
+        stripePriceId:
+          maskBillingIdentifier(subscription.stripePriceId, {
+            full: args.fullIdentifiers,
+          }) ?? subscription.stripePriceId,
         stripeScheduleId: maskBillingIdentifier(subscription.stripeScheduleId, {
           full: args.fullIdentifiers,
         }),
@@ -342,7 +361,6 @@ function buildSubscriptionRows(args: {
 }
 
 function buildCustomerRows(args: {
-  activeGrantByClerkUserId: Map<string, { active: boolean }>
   fullIdentifiers: boolean
   customers: Array<{
     active: boolean
@@ -357,6 +375,7 @@ function buildCustomerRows(args: {
     planKey: string
     status: string
   }>
+  userDirectory: StaffBillingUserLookupRecord[]
   users: Array<{
     clerkUserId: string
     name: string
@@ -364,6 +383,9 @@ function buildCustomerRows(args: {
 }) {
   const usersByClerkUserId = new Map(
     args.users.map((user) => [user.clerkUserId, user])
+  )
+  const userDirectoryByClerkUserId = new Map(
+    args.userDirectory.map((user) => [user.clerkUserId, user])
   )
   const subscriptionsByClerkUserId = new Map<
     string,
@@ -374,29 +396,37 @@ function buildCustomerRows(args: {
     const customerSubscriptions =
       subscriptionsByClerkUserId.get(subscription.clerkUserId) ?? []
     customerSubscriptions.push(subscription)
-    subscriptionsByClerkUserId.set(subscription.clerkUserId, customerSubscriptions)
+    subscriptionsByClerkUserId.set(
+      subscription.clerkUserId,
+      customerSubscriptions
+    )
   }
 
   return args.customers
     .map<StaffBillingCustomerRecord>((customer) => {
       const user = usersByClerkUserId.get(customer.clerkUserId)
+      const userLookup = userDirectoryByClerkUserId.get(customer.clerkUserId)
       const customerSubscriptions =
         subscriptionsByClerkUserId.get(customer.clerkUserId) ?? []
-      const activeSubscriptionCount = customerSubscriptions.filter((subscription) =>
-        isImpactStatus(subscription.status)
+      const activeSubscriptionCount = customerSubscriptions.filter(
+        (subscription) => isImpactStatus(subscription.status)
       ).length
+      const creatorAccessSource =
+        userLookup?.currentPlanKey === "creator" ? userLookup.accessSource : "none"
 
       return {
         active: customer.active,
         activeSubscriptionCount,
         clerkUserId: customer.clerkUserId,
         createdAt: customer.createdAt,
+        creatorAccessSource,
         email: customer.email,
-        hasCreatorGrant: Boolean(
-          args.activeGrantByClerkUserId.get(customer.clerkUserId)?.active
-        ),
+        hasCreatorAccess: creatorAccessSource !== "none",
+        hasCreatorGrant: userLookup?.hasCreatorGrant ?? false,
         planKeys: Array.from(
-          new Set(customerSubscriptions.map((subscription) => subscription.planKey))
+          new Set(
+            customerSubscriptions.map((subscription) => subscription.planKey)
+          )
         ).sort((left, right) => left.localeCompare(right)),
         stripeCustomerId:
           maskBillingIdentifier(customer.stripeCustomerId, {
@@ -413,7 +443,12 @@ function buildCustomerRows(args: {
 function buildWebhookMetrics(args: {
   events: Array<{
     processedAt?: number
-    processingStatus: "failed" | "ignored" | "processed" | "processing" | "received"
+    processingStatus:
+      | "failed"
+      | "ignored"
+      | "processed"
+      | "processing"
+      | "received"
     receivedAt: number
   }>
 }) {
@@ -441,18 +476,25 @@ function buildWebhookMetrics(args: {
   }
 
   return {
-    failedCount: args.events.filter((event) => event.processingStatus === "failed").length,
-    ignoredCount: args.events.filter((event) => event.processingStatus === "ignored")
-      .length,
-    lastProcessedAt: args.events.find((event) => event.processedAt !== undefined)
-      ?.processedAt,
+    failedCount: args.events.filter(
+      (event) => event.processingStatus === "failed"
+    ).length,
+    ignoredCount: args.events.filter(
+      (event) => event.processingStatus === "ignored"
+    ).length,
+    lastProcessedAt: args.events.find(
+      (event) => event.processedAt !== undefined
+    )?.processedAt,
     lastReceivedAt: args.events[0]?.receivedAt,
-    processedCount: args.events.filter((event) => event.processingStatus === "processed")
-      .length,
-    processingCount: args.events.filter((event) => event.processingStatus === "processing")
-      .length,
-    receivedCount: args.events.filter((event) => event.processingStatus === "received")
-      .length,
+    processedCount: args.events.filter(
+      (event) => event.processingStatus === "processed"
+    ).length,
+    processingCount: args.events.filter(
+      (event) => event.processingStatus === "processing"
+    ).length,
+    receivedCount: args.events.filter(
+      (event) => event.processingStatus === "received"
+    ).length,
     timeline: Array.from(timelineByDay.values()).sort(
       (left, right) => left.dayStart - right.dayStart
     ),
@@ -468,7 +510,12 @@ function buildWebhookEventRows(args: {
     invoiceId?: string
     paymentIntentId?: string
     processedAt?: number
-    processingStatus: "failed" | "ignored" | "processed" | "processing" | "received"
+    processingStatus:
+      | "failed"
+      | "ignored"
+      | "processed"
+      | "processing"
+      | "received"
     receivedAt: number
     safeSummary: string
     subscriptionId?: string
@@ -533,7 +580,8 @@ function buildUserDirectory(args: {
   >()
 
   for (const subscription of args.subscriptions) {
-    const userSubscriptions = subscriptionsByUserId.get(subscription.userId) ?? []
+    const userSubscriptions =
+      subscriptionsByUserId.get(subscription.userId) ?? []
     userSubscriptions.push(subscription)
     subscriptionsByUserId.set(subscription.userId, userSubscriptions)
   }
@@ -541,16 +589,18 @@ function buildUserDirectory(args: {
   function getCurrentSubscriptionForUser(userId: string) {
     const subscriptions = subscriptionsByUserId.get(userId) ?? []
 
-    return [...subscriptions].sort((left, right) => {
-      const leftPriority = isImpactStatus(left.status) ? 1 : 0
-      const rightPriority = isImpactStatus(right.status) ? 1 : 0
+    return (
+      [...subscriptions].sort((left, right) => {
+        const leftPriority = isImpactStatus(left.status) ? 1 : 0
+        const rightPriority = isImpactStatus(right.status) ? 1 : 0
 
-      if (leftPriority !== rightPriority) {
-        return rightPriority - leftPriority
-      }
+        if (leftPriority !== rightPriority) {
+          return rightPriority - leftPriority
+        }
 
-      return right.updatedAt - left.updatedAt
-    })[0] ?? null
+        return right.updatedAt - left.updatedAt
+      })[0] ?? null
+    )
   }
 
   return args.users.map<StaffBillingUserLookupRecord>((user) => {
@@ -739,7 +789,9 @@ function buildImpactPreview(args: {
   summary: string
   warnings?: string[]
 }) {
-  const impactedUserIds = new Set(args.impactedSubscriptions.map((row) => row.clerkUserId))
+  const impactedUserIds = new Set(
+    args.impactedSubscriptions.map((row) => row.clerkUserId)
+  )
   const impactedEmails = new Set(
     args.impactedSubscriptions
       .map((row) => row.email)
@@ -751,7 +803,9 @@ function buildImpactPreview(args: {
     counts: {
       activeCustomers: impactedEmails.size,
       activeSubscriptions: args.impactedSubscriptions.length,
-      affectedPlans: new Set(args.impactedSubscriptions.map((row) => row.planKey)).size,
+      affectedPlans: new Set(
+        args.impactedSubscriptions.map((row) => row.planKey)
+      ).size,
       affectedUsers: impactedUserIds.size,
     },
     impactedSubscriptions: args.impactedSubscriptions.slice(0, 25),
@@ -762,115 +816,125 @@ function buildImpactPreview(args: {
 
 function buildBillingDashboard(
   args: {
-  auditLogs: Array<{
-    _id: string
-    action: string
-    actorClerkUserId: string
-    actorName: string
-    actorRole: UserRole
-    createdAt: number
-    details?: string
-    entityId: string
-    entityLabel?: string
-    entityType: string
-    result: "error" | "success" | "warning"
-    summary: string
-  }>
-  customers: Array<{
-    active: boolean
-    clerkUserId: string
-    createdAt: number
-    email?: string
-    stripeCustomerId: string
-    updatedAt: number
-  }>
-  accessGrants: Array<{
-    _id: string
-    active: boolean
-    clerkUserId: string
-    createdAt: number
-    endsAt?: number
-    grantedByClerkUserId?: string
-    grantedByName?: string
-    planKey: string
-    reason: string
-    revokedAt?: number
-    source: "creator_approval" | "manual" | "promo"
-    startsAt?: number
-    userId: string
-  }>
-  features: Array<{
-    active: boolean
-    appliesTo?: string
-    archivedAt?: number
-    category?: string
-    description: string
-    key: string
-    name: string
-    sortOrder: number
-    stripeFeatureId?: string
-  }>
-  planFeatures: Array<{
-    enabled: boolean
-    featureKey: string
-    planKey: string
-  }>
-  plans: Array<{
-    active: boolean
-    archivedAt?: number
-    currency: string
-    description: string
-    key: string
-    monthlyPriceAmount: number
-    monthlyPriceId?: string
-    name: string
-    planType: "free" | "paid"
-    sortOrder: number
-    stripeProductId?: string
-    yearlyPriceAmount: number
-    yearlyPriceId?: string
-  }>
-  subscriptions: Array<{
-    attentionStatus: "none" | "past_due" | "paused" | "payment_failed" | "requires_action"
-    cancelAt?: number
-    cancelAtPeriodEnd: boolean
-    clerkUserId: string
-    currentPeriodEnd?: number
-    currentPeriodStart?: number
-    interval: "month" | "year"
-    planKey: string
-    scheduledChangeAt?: number
-    scheduledChangeType?: "cancel" | "plan_change"
-    scheduledInterval?: "month" | "year"
-    scheduledPlanKey?: string
-    status: string
-    stripeCustomerId: string
-    stripePriceId: string
-    stripeScheduleId?: string
-    stripeSubscriptionId: string
-    userId: string
-    updatedAt: number
-  }>
-  users: Array<{
-    _id: string
-    clerkUserId: string
-    name: string
-    plan?: "creator" | "free" | "premium"
-  }>
-  webhookEvents: Array<{
-    _id: string
-    customerId?: string
-    errorMessage?: string
-    eventType: string
-    invoiceId?: string
-    paymentIntentId?: string
-    processedAt?: number
-    processingStatus: "failed" | "ignored" | "processed" | "processing" | "received"
-    receivedAt: number
-    safeSummary: string
-    subscriptionId?: string
-  }>
-},
+    auditLogs: Array<{
+      _id: string
+      action: string
+      actorClerkUserId: string
+      actorName: string
+      actorRole: UserRole
+      createdAt: number
+      details?: string
+      entityId: string
+      entityLabel?: string
+      entityType: string
+      result: "error" | "success" | "warning"
+      summary: string
+    }>
+    customers: Array<{
+      active: boolean
+      clerkUserId: string
+      createdAt: number
+      email?: string
+      stripeCustomerId: string
+      updatedAt: number
+    }>
+    accessGrants: Array<{
+      _id: string
+      active: boolean
+      clerkUserId: string
+      createdAt: number
+      endsAt?: number
+      grantedByClerkUserId?: string
+      grantedByName?: string
+      planKey: string
+      reason: string
+      revokedAt?: number
+      source: "creator_approval" | "manual" | "promo"
+      startsAt?: number
+      userId: string
+    }>
+    features: Array<{
+      active: boolean
+      appliesTo?: string
+      archivedAt?: number
+      category?: string
+      description: string
+      key: string
+      name: string
+      sortOrder: number
+      stripeFeatureId?: string
+    }>
+    planFeatures: Array<{
+      enabled: boolean
+      featureKey: string
+      planKey: string
+    }>
+    plans: Array<{
+      active: boolean
+      archivedAt?: number
+      currency: string
+      description: string
+      key: string
+      monthlyPriceAmount: number
+      monthlyPriceId?: string
+      name: string
+      planType: "free" | "paid"
+      sortOrder: number
+      stripeProductId?: string
+      yearlyPriceAmount: number
+      yearlyPriceId?: string
+    }>
+    subscriptions: Array<{
+      attentionStatus:
+        | "none"
+        | "past_due"
+        | "paused"
+        | "payment_failed"
+        | "requires_action"
+      cancelAt?: number
+      cancelAtPeriodEnd: boolean
+      clerkUserId: string
+      currentPeriodEnd?: number
+      currentPeriodStart?: number
+      interval: "month" | "year"
+      planKey: string
+      scheduledChangeAt?: number
+      scheduledChangeType?: "cancel" | "plan_change"
+      scheduledInterval?: "month" | "year"
+      scheduledPlanKey?: string
+      status: string
+      stripeCustomerId: string
+      stripePriceId: string
+      stripeScheduleId?: string
+      stripeSubscriptionId: string
+      userId: string
+      updatedAt: number
+    }>
+    users: Array<{
+      _id: string
+      clerkUserId: string
+      name: string
+      plan?: "creator" | "free" | "premium"
+    }>
+    webhookEvents: Array<{
+      _id: string
+      customerId?: string
+      errorMessage?: string
+      eventType: string
+      invoiceId?: string
+      paymentIntentId?: string
+      processedAt?: number
+      processingStatus:
+        | "failed"
+        | "ignored"
+        | "processed"
+        | "processing"
+        | "received"
+      receivedAt: number
+      safeSummary: string
+      subscriptionId?: string
+    }>
+  },
   actorRole: UserRole = "staff"
 ) {
   const assignments = uniqueAssignments(args.planFeatures)
@@ -890,7 +954,8 @@ function buildBillingDashboard(
         )
         .sort((left, right) => {
           const priorityDifference =
-            getAccessGrantPriority(right.source) - getAccessGrantPriority(left.source)
+            getAccessGrantPriority(right.source) -
+            getAccessGrantPriority(left.source)
 
           if (priorityDifference !== 0) {
             return priorityDifference
@@ -903,20 +968,23 @@ function buildBillingDashboard(
       activeGrantByUserId.set(user._id, activeGrant)
     }
   }
-  const activeGrantByClerkUserId = new Map(
-    Array.from(activeGrantByUserId.values()).map((grant) => [grant.clerkUserId, grant])
-  )
   const subscriptionRows = buildSubscriptionRows({
     customers: args.customers,
     fullIdentifiers,
     subscriptions: args.subscriptions,
     users: args.users,
   })
+  const userDirectory = buildUserDirectory({
+    activeGrantByUserId,
+    customers: args.customers,
+    subscriptions: args.subscriptions,
+    users: args.users,
+  })
   const customerRows = buildCustomerRows({
-    activeGrantByClerkUserId,
     customers: args.customers,
     fullIdentifiers,
     subscriptions: args.subscriptions,
+    userDirectory,
     users: args.users,
   })
   const creatorGrantRows = buildCreatorGrantRows({
@@ -931,17 +999,14 @@ function buildBillingDashboard(
   const webhookMetrics = buildWebhookMetrics({
     events: args.webhookEvents,
   })
-  const userDirectory = buildUserDirectory({
-    activeGrantByUserId,
-    customers: args.customers,
-    subscriptions: args.subscriptions,
-    users: args.users,
-  })
-  const featuresByKey = new Map(args.features.map((feature) => [feature.key, feature]))
+  const featuresByKey = new Map(
+    args.features.map((feature) => [feature.key, feature])
+  )
   const subscriptionsByPlanKey = new Map<string, StaffSubscriptionImpactRow[]>()
 
   for (const subscription of subscriptionRows) {
-    const planSubscriptions = subscriptionsByPlanKey.get(subscription.planKey) ?? []
+    const planSubscriptions =
+      subscriptionsByPlanKey.get(subscription.planKey) ?? []
     planSubscriptions.push(subscription)
     subscriptionsByPlanKey.set(subscription.planKey, planSubscriptions)
   }
@@ -990,7 +1055,9 @@ function buildBillingDashboard(
           ? "free"
           : !plan.active || plan.archivedAt !== undefined
             ? "archived"
-            : !plan.stripeProductId || !plan.monthlyPriceId || !plan.yearlyPriceId
+            : !plan.stripeProductId ||
+                !plan.monthlyPriceId ||
+                !plan.yearlyPriceId
               ? "attention"
               : "ready",
       yearlyPriceAmount: plan.yearlyPriceAmount,
@@ -1002,7 +1069,10 @@ function buildBillingDashboard(
 
   const features: StaffBillingFeatureRecord[] = args.features.map((feature) => {
     const linkedPlanKeys = assignments
-      .filter((assignment) => assignment.enabled && assignment.featureKey === feature.key)
+      .filter(
+        (assignment) =>
+          assignment.enabled && assignment.featureKey === feature.key
+      )
       .map((assignment) => assignment.planKey)
       .sort((left, right) => left.localeCompare(right))
     const activeSubscriptionCount = linkedPlanKeys.reduce((count, planKey) => {
@@ -1031,7 +1101,8 @@ function buildBillingDashboard(
     attentionSubscriptions: subscriptionRows
       .filter((subscription) => subscription.attentionStatus !== "none")
       .slice(0, 25),
-    activeCustomerCount: customerRows.filter((customer) => customer.active).length,
+    activeCustomerCount: customerRows.filter((customer) => customer.active)
+      .length,
     assignments: assignments.map((assignment) => ({
       enabled: assignment.enabled,
       featureKey: assignment.featureKey,
@@ -1044,10 +1115,11 @@ function buildBillingDashboard(
     generatedAt: Date.now(),
     lastSync:
       parseSyncSummary(
-        args.auditLogs.find((log) => log.action === "billing.catalog.sync")?.details
+        args.auditLogs.find((log) => log.action === "billing.catalog.sync")
+          ?.details
       ) ?? null,
     plans,
-    subscriptions: subscriptionRows.slice(0, 60),
+    subscriptions: subscriptionRows,
     userDirectory,
     webhookEvents: webhookEventRows.slice(0, 80),
     webhookMetrics,
@@ -1098,7 +1170,10 @@ export const getDashboard = action({
   args: {},
   handler: async (ctx): Promise<StaffBillingDashboard> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
 
     return buildBillingDashboard(records, operator.actorRole)
   },
@@ -1110,7 +1185,10 @@ export const previewPlanArchive = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
     const plan = dashboard.plans.find((entry) => entry.key === args.planKey)
 
@@ -1147,7 +1225,10 @@ export const archivePlan = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
     const plan = dashboard.plans.find((entry) => entry.key === args.planKey)
 
@@ -1169,11 +1250,14 @@ export const archivePlan = action({
         })
       : 0
 
-    await ctx.runMutation(internal.mutations.staff.internal.setPlanActiveState, {
-      active: false,
-      archivedAt: Date.now(),
-      planKey: plan.key,
-    })
+    await ctx.runMutation(
+      internal.mutations.staff.internal.setPlanActiveState,
+      {
+        active: false,
+        archivedAt: Date.now(),
+        planKey: plan.key,
+      }
+    )
 
     const syncSummary = await attemptCatalogSync({
       ctx,
@@ -1219,7 +1303,10 @@ export const previewPriceReplacement = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
     const plan = dashboard.plans.find((entry) => entry.key === args.planKey)
 
@@ -1229,10 +1316,12 @@ export const previewPriceReplacement = action({
 
     const currentPriceId =
       args.interval === "month" ? plan.monthlyPriceId : plan.yearlyPriceId
-    const impactedSubscriptions = dashboard.subscriptions.filter((subscription) =>
-      currentPriceId
-        ? subscription.stripePriceId === currentPriceId
-        : subscription.planKey === plan.key && subscription.interval === args.interval
+    const impactedSubscriptions = dashboard.subscriptions.filter(
+      (subscription) =>
+        currentPriceId
+          ? subscription.stripePriceId === currentPriceId
+          : subscription.planKey === plan.key &&
+            subscription.interval === args.interval
     )
 
     return buildImpactPreview({
@@ -1242,15 +1331,14 @@ export const previewPriceReplacement = action({
         impactedSubscriptions.length > 0
           ? `Replacing the ${args.interval} price for ${plan.name} will create a new Stripe price, archive the superseded price, and leave ${impactedSubscriptions.length} active subscription(s) on the old price until you migrate or cancel them separately.`
           : `Replacing the ${args.interval} price for ${plan.name} will create a new Stripe price and archive the superseded price.`,
-      warnings:
-        [
-          impactedSubscriptions.length > 0
-            ? "Existing subscriptions will stay on their current Stripe price after this replacement."
-            : null,
-          args.interval === "month"
-            ? "The new monthly price becomes the Stripe product default before the previous monthly price is archived."
-            : "Monthly pricing remains the Stripe product default after this yearly replacement.",
-        ].filter((warning): warning is string => warning !== null),
+      warnings: [
+        impactedSubscriptions.length > 0
+          ? "Existing subscriptions will stay on their current Stripe price after this replacement."
+          : null,
+        args.interval === "month"
+          ? "The new monthly price becomes the Stripe product default before the previous monthly price is archived."
+          : "Monthly pricing remains the Stripe product default after this yearly replacement.",
+      ].filter((warning): warning is string => warning !== null),
     })
   },
 })
@@ -1262,7 +1350,10 @@ export const previewPlanFeatureSync = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
     const plan = dashboard.plans.find((entry) => entry.key === args.planKey)
 
@@ -1270,7 +1361,10 @@ export const previewPlanFeatureSync = action({
       throw new Error(`Billing plan ${args.planKey} was not found.`)
     }
 
-    const nextFeatureKeys = normalizeCatalogKeyList(args.featureKeys, "Feature key")
+    const nextFeatureKeys = normalizeCatalogKeyList(
+      args.featureKeys,
+      "Feature key"
+    )
     const { addedFeatureKeys, removedFeatureKeys } = getFeatureKeyDelta({
       nextFeatureKeys,
       previousFeatureKeys: plan.includedFeatureKeys,
@@ -1305,8 +1399,13 @@ export const replacePlanPrice = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
-    const plan = records.plans.find((entry: { key: string }) => entry.key === args.planKey)
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
+    const plan = records.plans.find(
+      (entry: { key: string }) => entry.key === args.planKey
+    )
 
     if (!plan) {
       throw new Error(`Billing plan ${args.planKey} was not found.`)
@@ -1321,7 +1420,9 @@ export const replacePlanPrice = action({
     }
 
     if (args.confirmationToken !== `${plan.key}:${args.interval}`) {
-      throw new Error(`Type ${plan.key}:${args.interval} to confirm the price replacement.`)
+      throw new Error(
+        `Type ${plan.key}:${args.interval} to confirm the price replacement.`
+      )
     }
 
     const nextAmount = validatePriceAmount(
@@ -1329,7 +1430,9 @@ export const replacePlanPrice = action({
       `${args.interval === "month" ? "Monthly" : "Yearly"} price`
     )
     const previousAmount =
-      args.interval === "month" ? plan.monthlyPriceAmount : plan.yearlyPriceAmount
+      args.interval === "month"
+        ? plan.monthlyPriceAmount
+        : plan.yearlyPriceAmount
 
     if (nextAmount === previousAmount) {
       throw new Error("The replacement price must change the current amount.")
@@ -1340,11 +1443,13 @@ export const replacePlanPrice = action({
       currency: plan.currency,
       description: plan.description,
       key: plan.key,
-      monthlyPriceAmount: args.interval === "month" ? nextAmount : plan.monthlyPriceAmount,
+      monthlyPriceAmount:
+        args.interval === "month" ? nextAmount : plan.monthlyPriceAmount,
       name: plan.name,
       planType: plan.planType,
       sortOrder: plan.sortOrder,
-      yearlyPriceAmount: args.interval === "year" ? nextAmount : plan.yearlyPriceAmount,
+      yearlyPriceAmount:
+        args.interval === "year" ? nextAmount : plan.yearlyPriceAmount,
     })
 
     const syncSummary = await attemptCatalogSync({
@@ -1391,16 +1496,21 @@ export const previewFeatureArchive = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
-    const feature = dashboard.features.find((entry) => entry.key === args.featureKey)
+    const feature = dashboard.features.find(
+      (entry) => entry.key === args.featureKey
+    )
 
     if (!feature) {
       throw new Error(`Billing feature ${args.featureKey} was not found.`)
     }
 
-    const impactedSubscriptions = dashboard.subscriptions.filter((subscription) =>
-      feature.linkedPlanKeys.includes(subscription.planKey)
+    const impactedSubscriptions = dashboard.subscriptions.filter(
+      (subscription) => feature.linkedPlanKeys.includes(subscription.planKey)
     )
 
     return buildImpactPreview({
@@ -1421,8 +1531,13 @@ export const archiveFeature = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
-    const feature = records.features.find((entry: { key: string }) => entry.key === args.featureKey)
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
+    const feature = records.features.find(
+      (entry: { key: string }) => entry.key === args.featureKey
+    )
 
     if (!feature) {
       throw new Error(`Billing feature ${args.featureKey} was not found.`)
@@ -1433,7 +1548,9 @@ export const archiveFeature = action({
     }
 
     const dashboard = buildBillingDashboard(records)
-    const existingFeature = dashboard.features.find((entry) => entry.key === feature.key)
+    const existingFeature = dashboard.features.find(
+      (entry) => entry.key === feature.key
+    )
 
     await ctx.runMutation(
       internal.mutations.staff.internal.syncPlanFeatureAssignmentsForFeature,
@@ -1442,11 +1559,14 @@ export const archiveFeature = action({
         planKeys: [],
       }
     )
-    await ctx.runMutation(internal.mutations.staff.internal.setFeatureActiveState, {
-      active: false,
-      archivedAt: Date.now(),
-      featureKey: feature.key,
-    })
+    await ctx.runMutation(
+      internal.mutations.staff.internal.setFeatureActiveState,
+      {
+        active: false,
+        archivedAt: Date.now(),
+        featureKey: feature.key,
+      }
+    )
 
     const syncSummary = await attemptCatalogSync({
       ctx,
@@ -1491,9 +1611,14 @@ export const previewFeatureAssignmentChange = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
-    const feature = dashboard.features.find((entry) => entry.key === args.featureKey)
+    const feature = dashboard.features.find(
+      (entry) => entry.key === args.featureKey
+    )
     const plan = dashboard.plans.find((entry) => entry.key === args.planKey)
 
     if (!feature || !plan) {
@@ -1512,7 +1637,9 @@ export const previewFeatureAssignmentChange = action({
         : `Detaching ${feature.name} from ${plan.name} changes the entitlement or marketing surface for ${impactedSubscriptions.length} active subscription(s) on that plan.`,
       warnings:
         impactedSubscriptions.length > 0
-          ? ["Detach changes are effective only after Stripe synchronization completes."]
+          ? [
+              "Detach changes are effective only after Stripe synchronization completes.",
+            ]
           : [],
     })
   },
@@ -1525,9 +1652,14 @@ export const previewFeatureAssignmentSync = action({
   },
   handler: async (ctx, args): Promise<StaffImpactPreview> => {
     await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
-    const feature = dashboard.features.find((entry) => entry.key === args.featureKey)
+    const feature = dashboard.features.find(
+      (entry) => entry.key === args.featureKey
+    )
 
     if (!feature) {
       throw new Error(`Billing feature ${args.featureKey} was not found.`)
@@ -1538,9 +1670,10 @@ export const previewFeatureAssignmentSync = action({
       nextPlanKeys,
       previousPlanKeys: feature.linkedPlanKeys,
     })
-    const impactedSubscriptions = dashboard.subscriptions.filter((subscription) =>
-      removedPlanKeys.includes(subscription.planKey) ||
-      addedPlanKeys.includes(subscription.planKey)
+    const impactedSubscriptions = dashboard.subscriptions.filter(
+      (subscription) =>
+        removedPlanKeys.includes(subscription.planKey) ||
+        addedPlanKeys.includes(subscription.planKey)
     )
 
     return buildImpactPreview({
@@ -1568,19 +1701,29 @@ export const setFeatureAssignment = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
-    const feature = records.features.find((entry: { key: string }) => entry.key === args.featureKey)
-    const plan = records.plans.find((entry: { key: string }) => entry.key === args.planKey)
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
+    const feature = records.features.find(
+      (entry: { key: string }) => entry.key === args.featureKey
+    )
+    const plan = records.plans.find(
+      (entry: { key: string }) => entry.key === args.planKey
+    )
 
     if (!feature || !plan) {
       throw new Error("The requested plan or feature was not found.")
     }
 
-    await ctx.runMutation(internal.mutations.staff.internal.setPlanFeatureAssignment, {
-      enabled: args.enabled,
-      featureKey: feature.key,
-      planKey: plan.key,
-    })
+    await ctx.runMutation(
+      internal.mutations.staff.internal.setPlanFeatureAssignment,
+      {
+        enabled: args.enabled,
+        featureKey: feature.key,
+        planKey: plan.key,
+      }
+    )
 
     const syncSummary = await attemptCatalogSync({
       ctx,
@@ -1632,16 +1775,23 @@ export const syncFeatureAssignments = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const dashboard = buildBillingDashboard(records)
-    const feature = dashboard.features.find((entry) => entry.key === args.featureKey)
+    const feature = dashboard.features.find(
+      (entry) => entry.key === args.featureKey
+    )
 
     if (!feature) {
       throw new Error(`Billing feature ${args.featureKey} was not found.`)
     }
 
     const nextPlanKeys = normalizeCatalogKeyList(args.planKeys, "Plan key")
-    const plansByKey = new Map(records.plans.map((plan: { key: string }) => [plan.key, plan]))
+    const plansByKey = new Map(
+      records.plans.map((plan: { key: string }) => [plan.key, plan])
+    )
 
     if (!feature.active && nextPlanKeys.length > 0) {
       throw new Error("Archived features cannot be assigned to plans.")
@@ -1719,25 +1869,35 @@ export const upsertPlan = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const normalizedKey = validateCatalogKey(args.key, "Plan key")
     const existingPlan = records.plans.find(
       (plan: { key: string }) => plan.key === normalizedKey
     )
     const dashboard = buildBillingDashboard(records)
-    const currentPlan = dashboard.plans.find((plan) => plan.key === normalizedKey)
+    const currentPlan = dashboard.plans.find(
+      (plan) => plan.key === normalizedKey
+    )
     const normalizedName = validateDisplayName(args.name, "Plan name")
     const normalizedCurrency = normalizeCurrency(args.currency)
     const normalizedDescription = normalizeDescription(args.description)
-    const normalizedFeatureKeys = normalizeCatalogKeyList(args.featureKeys, "Feature key")
+    const normalizedFeatureKeys = normalizeCatalogKeyList(
+      args.featureKeys,
+      "Feature key"
+    )
     const featuresByKey = new Map<
       string,
       { active: boolean; key: string; name: string }
     >(
-      records.features.map((feature: { active: boolean; key: string; name: string }) => [
-        feature.key,
-        feature,
-      ])
+      records.features.map(
+        (feature: { active: boolean; key: string; name: string }) => [
+          feature.key,
+          feature,
+        ]
+      )
     )
     const monthlyPriceAmount =
       args.planType === "free"
@@ -1752,7 +1912,9 @@ export const upsertPlan = action({
       existingPlan &&
       existingPlan.planType === "paid" &&
       args.planType === "free" &&
-      dashboard.subscriptions.some((subscription) => subscription.planKey === existingPlan.key)
+      dashboard.subscriptions.some(
+        (subscription) => subscription.planKey === existingPlan.key
+      )
     ) {
       throw new Error(
         "Paid plans with active subscriptions cannot be converted into free plans."
@@ -1767,7 +1929,9 @@ export const upsertPlan = action({
       }
 
       if (!feature.active) {
-        throw new Error(`Archived billing feature ${feature.name} cannot be assigned to a plan.`)
+        throw new Error(
+          `Archived billing feature ${feature.name} cannot be assigned to a plan.`
+        )
       }
     }
 
@@ -1849,7 +2013,11 @@ export const upsertPlan = action({
 export const upsertFeature = action({
   args: {
     active: v.boolean(),
-    appliesTo: v.union(v.literal("entitlement"), v.literal("marketing"), v.literal("both")),
+    appliesTo: v.union(
+      v.literal("entitlement"),
+      v.literal("marketing"),
+      v.literal("both")
+    ),
     category: v.optional(v.string()),
     description: v.string(),
     key: v.string(),
@@ -1858,7 +2026,10 @@ export const upsertFeature = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "staff")
-    const records = await ctx.runQuery(internal.queries.staff.internal.getBillingRecords, {})
+    const records = await ctx.runQuery(
+      internal.queries.staff.internal.getBillingRecords,
+      {}
+    )
     const normalizedKey = validateCatalogKey(args.key, "Feature key")
     const existingFeature = records.features.find(
       (feature: { key: string }) => feature.key === normalizedKey
@@ -1886,7 +2057,9 @@ export const upsertFeature = action({
     })
 
     await recordAuditLog({
-      action: existingFeature ? "billing.feature.updated" : "billing.feature.created",
+      action: existingFeature
+        ? "billing.feature.updated"
+        : "billing.feature.created",
       actorClerkUserId: operator.actorClerkUserId,
       actorName: operator.actorDisplayName,
       actorRole: operator.actorRole,
@@ -1933,12 +2106,18 @@ export const grantCreatorAccess = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "admin")
-    const targetUser = await ctx.runQuery(internal.queries.staff.internal.getUserById, {
-      userId: args.targetUserId,
-    })
-    const plan = await ctx.runQuery(internal.queries.billing.internal.getPlanByKey, {
-      planKey: args.planKey,
-    })
+    const targetUser = await ctx.runQuery(
+      internal.queries.staff.internal.getUserById,
+      {
+        userId: args.targetUserId,
+      }
+    )
+    const plan = await ctx.runQuery(
+      internal.queries.billing.internal.getPlanByKey,
+      {
+        planKey: args.planKey,
+      }
+    )
     const normalizedReason = args.reason.trim()
 
     if (!targetUser) {
@@ -1950,20 +2129,25 @@ export const grantCreatorAccess = action({
     }
 
     if (normalizedReason.length < 8) {
-      throw new Error("A clear reason is required before creator access can be granted.")
+      throw new Error(
+        "A clear reason is required before creator access can be granted."
+      )
     }
 
-    await ctx.runMutation(internal.mutations.billing.state.grantBillingAccessGrant, {
-      clerkUserId: targetUser.clerkUserId,
-      endsAt: args.endsAt,
-      grantedByClerkUserId: operator.actorClerkUserId,
-      grantedByName: operator.actorDisplayName,
-      planKey: plan.key,
-      reason: normalizedReason,
-      source: "creator_approval",
-      startsAt: Date.now(),
-      userId: targetUser._id,
-    })
+    await ctx.runMutation(
+      internal.mutations.billing.state.grantBillingAccessGrant,
+      {
+        clerkUserId: targetUser.clerkUserId,
+        endsAt: args.endsAt,
+        grantedByClerkUserId: operator.actorClerkUserId,
+        grantedByName: operator.actorDisplayName,
+        planKey: plan.key,
+        reason: normalizedReason,
+        source: "creator_approval",
+        startsAt: Date.now(),
+        userId: targetUser._id,
+      }
+    )
 
     await recordAuditLog({
       action: "billing.creator_access.granted",
@@ -2003,9 +2187,12 @@ export const revokeCreatorAccess = action({
   },
   handler: async (ctx, args): Promise<StaffMutationResponse> => {
     const operator = await requireAuthorizedStaffAction(ctx, "admin")
-    const targetUser = await ctx.runQuery(internal.queries.staff.internal.getUserById, {
-      userId: args.targetUserId,
-    })
+    const targetUser = await ctx.runQuery(
+      internal.queries.staff.internal.getUserById,
+      {
+        userId: args.targetUserId,
+      }
+    )
     const currentGrant = await ctx.runQuery(
       internal.queries.billing.internal.getCurrentCreatorGrantByUserId,
       {
@@ -2023,14 +2210,19 @@ export const revokeCreatorAccess = action({
     }
 
     if (normalizedReason.length < 8) {
-      throw new Error("A clear reason is required before creator access can be revoked.")
+      throw new Error(
+        "A clear reason is required before creator access can be revoked."
+      )
     }
 
-    await ctx.runMutation(internal.mutations.billing.state.revokeBillingAccessGrant, {
-      grantId: currentGrant._id,
-      revokedByClerkUserId: operator.actorClerkUserId,
-      revokedByName: operator.actorDisplayName,
-    })
+    await ctx.runMutation(
+      internal.mutations.billing.state.revokeBillingAccessGrant,
+      {
+        grantId: currentGrant._id,
+        revokedByClerkUserId: operator.actorClerkUserId,
+        revokedByName: operator.actorDisplayName,
+      }
+    )
 
     await recordAuditLog({
       action: "billing.creator_access.revoked",

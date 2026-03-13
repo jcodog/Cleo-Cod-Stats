@@ -235,3 +235,33 @@ export const getCurrentCreatorGrantByUserId = internalQuery({
     )
   },
 })
+
+export const listBillingSubscriptionsByUserId = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await getBillingSubscriptionsByUserId(ctx, args.userId)
+  },
+})
+
+export const getBillingSubscriptionByStripeSubscriptionIdForUser = internalQuery({
+  args: {
+    stripeSubscriptionId: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const subscription = await ctx.db
+      .query("billingSubscriptions")
+      .withIndex("by_stripeSubscriptionId", (query) =>
+        query.eq("stripeSubscriptionId", args.stripeSubscriptionId)
+      )
+      .unique()
+
+    if (!subscription || subscription.userId !== args.userId) {
+      return null
+    }
+
+    return subscription
+  },
+})

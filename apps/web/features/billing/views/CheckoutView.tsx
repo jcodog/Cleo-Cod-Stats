@@ -4,10 +4,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Elements } from "@stripe/react-stripe-js"
-import type { Appearance } from "@stripe/stripe-js"
 import { IconCreditCard } from "@tabler/icons-react"
 import { useTheme } from "next-themes"
-import { Alert, AlertDescription, AlertTitle } from "@workspace/ui/components/alert"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -28,26 +31,34 @@ import { toast } from "sonner"
 
 import { BillingSummary } from "@/features/billing/components/BillingSummary"
 import { CheckoutPaymentForm } from "@/features/billing/components/CheckoutPaymentForm"
-import { CurrentPlanCard } from "@/features/billing/components/CurrentPlanCard"
 import { PlanSelector } from "@/features/billing/components/PlanSelector"
 import {
   BillingClientError,
   useAbandonPendingCheckout,
-  useBillingState,
+  useBillingCenter,
   useCreateSubscriptionIntent,
   usePricingCatalog,
 } from "@/features/billing/lib/billing-client"
 import type { BillingInterval } from "@/features/billing/lib/billing-types"
-import { getStripePublishableKey, stripePromise } from "@/features/billing/lib/stripe"
+import {
+  getStripeElementsAppearance,
+  getStripePublishableKey,
+  stripePromise,
+} from "@/features/billing/lib/stripe"
 
-export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) {
+export function CheckoutView({
+  checkoutEnabled,
+}: {
+  checkoutEnabled: boolean
+}) {
   const router = useRouter()
   const { resolvedTheme } = useTheme()
   const catalogQuery = usePricingCatalog()
-  const billingStateQuery = useBillingState()
+  const billingCenterQuery = useBillingCenter()
   const createSubscriptionIntent = useCreateSubscriptionIntent()
   const abandonPendingCheckout = useAbandonPendingCheckout()
-  const [selectedInterval, setSelectedInterval] = useState<BillingInterval>("month")
+  const [selectedInterval, setSelectedInterval] =
+    useState<BillingInterval>("month")
   const [selectedPlanKey, setSelectedPlanKey] = useState("")
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false)
@@ -59,100 +70,15 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
   } | null>(null)
 
   const paidPlans =
-    catalogQuery.data?.plans.filter((plan) => plan.planType === "paid") ?? []
+    catalogQuery.data?.plans.filter(
+      (plan) => plan.planType === "paid" && plan.active
+    ) ?? []
   const selectedPlan =
-    paidPlans.find((plan) => plan.planKey === selectedPlanKey) ?? paidPlans[0] ?? null
-  const hasBillingAccess =
-    billingStateQuery.data?.accessSource === "paid_subscription" &&
-    billingStateQuery.data.subscription !== null
-  const stripeAppearance: Appearance =
-    resolvedTheme === "dark"
-      ? {
-          labels: "floating" as const,
-          theme: "night" as const,
-          variables: {
-            borderRadius: "12px",
-            colorBackground: "#111317",
-            colorDanger: "#ef4444",
-            colorPrimary: "#0f766e",
-            colorText: "#f4f4f5",
-            colorTextSecondary: "#a1a1aa",
-            colorPrimaryText: "#f8fafc",
-            fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
-          },
-          rules: {
-            ".AccordionItem": {
-              backgroundColor: "#111317",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "none",
-            },
-            ".Input": {
-              backgroundColor: "#151821",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "none",
-            },
-            ".Input:focus": {
-              border: "1px solid rgba(15,118,110,0.8)",
-              boxShadow: "0 0 0 3px rgba(15,118,110,0.18)",
-            },
-            ".Label": {
-              color: "#d4d4d8",
-            },
-            ".Tab": {
-              backgroundColor: "#151821",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "none",
-            },
-            ".Tab--selected": {
-              backgroundColor: "#1a1f29",
-              borderColor: "rgba(15,118,110,0.65)",
-              boxShadow: "0 0 0 1px rgba(15,118,110,0.18)",
-            },
-          },
-        }
-      : {
-          labels: "floating" as const,
-          theme: "flat" as const,
-          variables: {
-            borderRadius: "12px",
-            colorBackground: "#ffffff",
-            colorDanger: "#dc2626",
-            colorPrimary: "#0f766e",
-            colorText: "#111827",
-            colorTextSecondary: "#6b7280",
-            colorPrimaryText: "#ffffff",
-            fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
-          },
-          rules: {
-            ".AccordionItem": {
-              backgroundColor: "#ffffff",
-              border: "1px solid rgba(17,24,39,0.1)",
-              boxShadow: "none",
-            },
-            ".Input": {
-              backgroundColor: "#ffffff",
-              border: "1px solid rgba(17,24,39,0.12)",
-              boxShadow: "none",
-            },
-            ".Input:focus": {
-              border: "1px solid rgba(15,118,110,0.75)",
-              boxShadow: "0 0 0 3px rgba(15,118,110,0.12)",
-            },
-            ".Label": {
-              color: "#374151",
-            },
-            ".Tab": {
-              backgroundColor: "#ffffff",
-              border: "1px solid rgba(17,24,39,0.1)",
-              boxShadow: "none",
-            },
-            ".Tab--selected": {
-              backgroundColor: "#f8fafc",
-              borderColor: "rgba(15,118,110,0.45)",
-              boxShadow: "0 0 0 1px rgba(15,118,110,0.12)",
-            },
-          },
-        }
+    paidPlans.find((plan) => plan.planKey === selectedPlanKey) ??
+    paidPlans[0] ??
+    null
+  const hasManagedSubscription =
+    billingCenterQuery.data?.portalMode === "management"
 
   useEffect(() => {
     if (!catalogQuery.data || selectedPlanKey) {
@@ -186,7 +112,9 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
 
   async function handleClosePaymentDialog() {
     if (isPaymentSubmitting) {
-      toast.error("Wait for Stripe confirmation to finish before closing checkout.")
+      toast.error(
+        "Wait for Stripe confirmation to finish before closing checkout."
+      )
       return
     }
 
@@ -252,7 +180,7 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
     )
   }
 
-  if (catalogQuery.isPending || billingStateQuery.isPending) {
+  if (catalogQuery.isPending || billingCenterQuery.isPending) {
     return (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_24rem]">
         <Skeleton className="min-h-[28rem] rounded-3xl" />
@@ -261,7 +189,7 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
     )
   }
 
-  if (catalogQuery.isError || billingStateQuery.isError) {
+  if (catalogQuery.isError || billingCenterQuery.isError) {
     return (
       <Alert variant="destructive">
         <AlertTitle>Billing failed to load</AlertTitle>
@@ -272,20 +200,21 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
     )
   }
 
-  if (hasBillingAccess && billingStateQuery.data) {
+  if (hasManagedSubscription) {
     return (
       <div className="grid gap-6">
-        <CurrentPlanCard state={billingStateQuery.data} />
         <Card className="border-border/70 bg-card/95 shadow-sm">
           <CardHeader>
-            <CardTitle>You already have billing access</CardTitle>
+            <CardTitle>Checkout is only for new subscriptions</CardTitle>
             <CardDescription>
-              Manage upgrades, downgrades, cancellation, and invoices from the billing portal.
+              This account already has a managed Stripe subscription path. Open
+              billing to change plans, update payment methods, or manage
+              cancellation from inside the app.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link href="/settings/billing">Open billing settings</Link>
+              <Link href="/settings/billing">Open billing</Link>
             </Button>
           </CardContent>
         </Card>
@@ -307,10 +236,12 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
   return (
     <div className="grid gap-8">
       <div className="space-y-3">
-        <h1 className="text-4xl font-semibold tracking-tight">Secure checkout</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          Secure checkout
+        </h1>
         <p className="max-w-3xl text-base text-muted-foreground">
-          Choose a plan, review the included product access, and complete payment
-          directly inside the app with Stripe Elements and Link where available.
+          Choose a plan and complete payment directly inside the app with Stripe
+          Elements and Link where available.
         </p>
       </div>
 
@@ -346,17 +277,22 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
                   <Alert variant="destructive">
                     <AlertTitle>Stripe publishable key missing</AlertTitle>
                     <AlertDescription>
-                      Set <code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> before using checkout.
+                      Set <code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> before
+                      using checkout.
                     </AlertDescription>
                   </Alert>
                 ) : (
                   <p className="w-full text-sm text-muted-foreground">
-                    Payment is collected in a secure Stripe dialog. Link autofill appears automatically when supported.
+                    Payment is collected in a secure Stripe dialog. Link
+                    autofill appears automatically when supported.
                   </p>
                 )}
                 <Button
                   className="w-full"
-                  disabled={!getStripePublishableKey() || createSubscriptionIntent.isPending}
+                  disabled={
+                    !getStripePublishableKey() ||
+                    createSubscriptionIntent.isPending
+                  }
                   onClick={() => void handleCreateIntent()}
                   size="lg"
                 >
@@ -393,7 +329,8 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
               <DialogHeader className="border-b border-border/70 px-6 py-5">
                 <DialogTitle>Secure payment</DialogTitle>
                 <DialogDescription>
-                  Complete {selectedPlan.name} inside Stripe Elements with Link where available.
+                  Complete {selectedPlan.name} inside Stripe Elements with Link
+                  where available.
                 </DialogDescription>
               </DialogHeader>
               <div className="min-h-0 overflow-y-auto px-6 py-5">
@@ -401,7 +338,7 @@ export function CheckoutView({ checkoutEnabled }: { checkoutEnabled: boolean }) 
                   <Elements
                     key={`${checkoutResult.clientSecret}:${resolvedTheme ?? "system"}`}
                     options={{
-                      appearance: stripeAppearance,
+                      appearance: getStripeElementsAppearance(resolvedTheme),
                       clientSecret: checkoutResult.clientSecret,
                       customerSessionClientSecret:
                         checkoutResult.customerSessionClientSecret,

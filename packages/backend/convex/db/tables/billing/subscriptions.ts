@@ -29,6 +29,7 @@ export const billingSubscriptions = defineTable({
   ),
 
   interval: v.union(v.literal("month"), v.literal("year")),
+  defaultPaymentMethodId: v.optional(v.string()),
   attentionStatus: v.union(
     v.literal("none"),
     v.literal("payment_failed"),
@@ -44,6 +45,10 @@ export const billingSubscriptions = defineTable({
   cancelAt: v.optional(v.number()),
   canceledAt: v.optional(v.number()),
   endedAt: v.optional(v.number()),
+  quantity: v.optional(v.number()),
+  startedAt: v.optional(v.number()),
+  trialEnd: v.optional(v.number()),
+  trialStart: v.optional(v.number()),
 
   scheduledChangeType: v.optional(
     v.union(v.literal("cancel"), v.literal("plan_change"))
